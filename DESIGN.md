@@ -1,6 +1,11 @@
 # MotorBase — Design
 
-MotorBase is an **engine-building database** focused on **building and tracking parts ordering (procurement)**. A builder defines the parts a given engine build needs (a bill of materials), then orders those parts from vendors and tracks them through the procurement lifecycle — what's needed vs. ordered vs. received, from whom, at what cost, with tracking/ETA.
+MotorBase is an **engine-building database** built around two connected pillars:
+
+1. **Guided build workflow** — walk an engine builder through the common tasks of a build (evaluate the valvetrain, examine the cylinder head, examine the pistons, examine the cylinders, etc.), capturing the measurements each task requires and flagging anything out of spec.
+2. **Parts ordering (procurement)** — define the parts a build needs (a bill of materials), order them from vendors, and track them through the procurement lifecycle: what's needed vs. ordered vs. received, from whom, at what cost, with tracking/ETA.
+
+The two pillars are connected: an inspection task that fails or measures out of spec (e.g. a worn cylinder or cracked head) generates a **part need**, which flows into the BOM and the ordering workflow. This makes MotorBase a single place to both *do* the build and *supply* the build.
 
 The application is designed as a **multi-tenant SaaS** from day one, running on an **AWS serverless** stack.
 
@@ -8,24 +13,35 @@ The application is designed as a **multi-tenant SaaS** from day one, running on 
 
 ## 1. Product scope
 
-The headline experience is a per-build **procurement dashboard**: for every part a build needs, show how many are still *to order*, *on order*, *received*, or *backordered*.
+Two headline experiences:
+
+- A per-build **guided task checklist**: the builder works through inspection/assembly tasks by phase, follows step-by-step instructions, records the measurements each task requires, and sees pass / fail / out-of-spec results.
+- A per-build **procurement dashboard**: for every part a build needs, show how many are still *to order*, *on order*, *received*, or *backordered*.
 
 ### MVP
 
-- Parts **catalog** (reusable parts with vendor + pricing).
-- **Vendors** directory.
-- **Builds** and their **bill of materials** (BOM: parts needed + quantities).
-- **Orders** to vendors with line items, cost, tracking, and ETA.
-- **Receiving**: record received quantities against order lines.
+Guided build workflow:
+
+- **Task templates** (reusable procedures) covering common tasks — examine cylinders, examine pistons, examine cylinder head, evaluate valvetrain, plus crankshaft/bearings, connecting rods, and rings. Each template defines ordered steps, required tools, and the measurement specs to capture (nominal + tolerance/limits + unit).
+- **Build tasks**: instantiate templates onto a build, grouped by phase (teardown → clean → inspect → machine → assemble → final), with per-task status (not started / in progress / pass / fail / skipped).
+- **Measurement capture** with in-/out-of-spec flagging, including per-location measurements (e.g. per cylinder, per journal, per valve).
+- **Findings → parts needs**: a failed/out-of-spec task can generate a recommended part need that feeds the BOM.
+
+Parts ordering:
+
+- Parts **catalog** (reusable parts with vendor + pricing) and **Vendors** directory.
+- **Builds** and their **bill of materials** (BOM: parts needed + quantities), including needs generated from inspection findings.
+- **Orders** to vendors with line items, cost, tracking, and ETA; **Receiving** against order lines.
 - **Procurement dashboard** per build: computed to-order / on-order / received / backordered.
 - Search/filter catalog by category and vendor; list orders by status/vendor.
 
 ### Later
 
-- Notifications for backorders / deliveries.
-- Attachments (invoices, packing slips) and per-build activity log.
+- System-provided task template library per engine family, with tenant customization/versioning.
+- Notifications for backorders / deliveries and for failed inspections.
+- Attachments (task photos, invoices, packing slips) and per-build activity log.
 - Inventory/stock tracking of received parts.
-- Export order/build sheets to PDF; reorder templates.
+- Export build sheet + inspection report + order sheets to PDF; reorder templates.
 - Full tenant switching and richer RBAC.
 
 ---
@@ -62,7 +78,7 @@ flowchart LR
 
 ## 4. Domain model
 
-Entities: `Tenant`, `Membership`, `User` (Cognito), `Vendor`, `Part` (catalog), `Build`, `BomLine`, `Order`, `OrderLine`.
+Entities: `Tenant`, `Membership`, `User` (Cognito), `Vendor`, `Part` (catalog), `Build`, `BomLine`, `Order`, `OrderLine`, plus the guided-workflow entities `TaskTemplate`, `MeasurementSpec`, `BuildTask`, and `MeasurementResult`.
 
 ```mermaid
 erDiagram
@@ -71,6 +87,13 @@ erDiagram
     TENANT ||--o{ BUILD : owns
     TENANT ||--o{ PART : owns
     TENANT ||--o{ VENDOR : owns
+    TENANT ||--o{ TASK_TEMPLATE : owns
+    TASK_TEMPLATE ||--o{ MEASUREMENT_SPEC : defines
+    BUILD ||--o{ BUILD_TASK : "has checklist of"
+    TASK_TEMPLATE ||--o{ BUILD_TASK : "instantiated as"
+    BUILD_TASK ||--o{ MEASUREMENT_RESULT : records
+    MEASUREMENT_SPEC ||--o{ MEASUREMENT_RESULT : "measured against"
+    BUILD_TASK ||--o{ BOM_LINE : "generates need"
     BUILD ||--o{ BOM_LINE : needs
     PART ||--o{ BOM_LINE : "referenced by"
     VENDOR ||--o{ PART : supplies
@@ -84,10 +107,31 @@ erDiagram
     BUILD { string id string name enum status text notes }
     PART { string id string name string part_number string category money list_price }
     VENDOR { string id string name string url string account_ref }
-    BOM_LINE { string build_id string part_id int qty_needed }
+    BOM_LINE { string build_id string part_id int qty_needed string source }
     ORDER { string id string build_id string vendor_id enum status date ordered_at string tracking date eta money total }
     ORDER_LINE { string order_id string part_id int qty_ordered int qty_received money unit_price }
+    TASK_TEMPLATE { string id string name string category enum phase json steps json tools }
+    MEASUREMENT_SPEC { string template_id string label float nominal float min float max string unit bool per_location }
+    BUILD_TASK { string id string build_id string template_id enum phase int seq enum status enum result string component_ref text notes }
+    MEASUREMENT_RESULT { string build_task_id string spec_label string location float measured string unit enum result }
 ```
+
+### Guided build workflow
+
+- **Task templates** are reusable procedures grouped by `category` (cylinders, pistons, cylinder head, valvetrain, crankshaft/bearings, connecting rods, rings, assembly) and a build `phase` (`TEARDOWN → CLEAN → INSPECT → MACHINE → ASSEMBLE → FINAL`). A template carries ordered `steps`, required `tools`, and a set of `MeasurementSpec`s.
+- A **build task** is a template instantiated onto a specific build, ordered within its phase by `seq`, with `status` (`NOT_STARTED / IN_PROGRESS / PASS / FAIL / SKIPPED`) and an overall `result`.
+- **Measurement results** capture the actual reading for each spec; `per_location` specs repeat per cylinder/journal/valve (e.g. bore diameter measured on cylinders 1–8). Each result is auto-flagged in/out of spec against the template's `min`/`max`.
+- **Findings feed procurement**: when a task fails or a measurement is out of spec, MotorBase can create a `BomLine` with `source = "inspection"` referencing the task, so the required replacement part flows straight into the BOM and ordering workflow.
+
+Example templates and the measurements they capture:
+
+| Task template | Category / phase | Key measurements (per location) |
+|---|---|---|
+| Examine cylinders | cylinders / INSPECT | bore diameter, taper, out-of-round, surface finish (per cylinder) |
+| Examine pistons | pistons / INSPECT | piston-to-wall clearance, ring end gap, ring-groove/side clearance, weight (per piston) |
+| Examine cylinder head | cylinder head / INSPECT | deck flatness/warpage, valve-seat concentricity, valve-guide clearance, chamber cc, crack check (pass/fail) |
+| Evaluate valvetrain | valvetrain / INSPECT + ASSEMBLE | valve spring installed height, seat/open pressure, valve lash, retainer-to-seal clearance, coil-bind clearance, pushrod length (per valve) |
+| Crankshaft / bearings | crankshaft / ASSEMBLE | main & rod bearing clearance (plastigage), crank endplay, journal diameter (per journal) |
 
 ### Procurement math (per BOM part)
 
@@ -118,20 +162,31 @@ One table (`MotorBase`) with `PK`/`SK` and two GSIs. Tenant id prefixes every ke
 | Order line | `TENANT#<t>#ORDER#<id>` | `LINE#<partId>` |
 | Part (catalog) | `TENANT#<t>#PART#<id>` | `#META` |
 | Vendor | `TENANT#<t>#VENDOR#<id>` | `#META` |
+| Task template meta | `TENANT#<t>#TASKTEMPLATE#<id>` | `#META` |
+| Measurement spec | `TENANT#<t>#TASKTEMPLATE#<id>` | `SPEC#<label>` |
+| Build task (checklist item) | `TENANT#<t>#BUILD#<id>` | `TASK#<phase>#<seq>#<taskId>` |
+| Build task meta | `TENANT#<t>#TASK#<taskId>` | `#META` |
+| Measurement result | `TENANT#<t>#TASK#<taskId>` | `MEAS#<label>#<location>` |
+| Task attachment | `TENANT#<t>#TASK#<taskId>` | `ATTACH#<id>` |
 
 Global secondary indexes:
 
-- **GSI1 (catalog / vendor browse)**: `GSI1PK = TENANT#<t>#CATEGORY#<cat>` / `GSI1SK = PART#<id>`; a vendor's parts via `GSI1PK = TENANT#<t>#VENDOR#<id>`.
-- **GSI2 (order tracking)**: `GSI2PK = TENANT#<t>#STATUS#<status>` / `GSI2SK = ORDER#<orderedAt>`; a vendor's orders via `GSI2PK = TENANT#<t>#VENDOR#<id>`.
+- **GSI1 (catalog / vendor / template browse)**: `GSI1PK = TENANT#<t>#CATEGORY#<cat>` / `GSI1SK = PART#<id>`; a vendor's parts via `GSI1PK = TENANT#<t>#VENDOR#<id>`; task templates by category via `GSI1PK = TENANT#<t>#TASKCATEGORY#<cat>` / `GSI1SK = TASKTEMPLATE#<id>`.
+- **GSI2 (order + task tracking)**: `GSI2PK = TENANT#<t>#STATUS#<status>` / `GSI2SK = ORDER#<orderedAt>`; a vendor's orders via `GSI2PK = TENANT#<t>#VENDOR#<id>`; open tasks by status via `GSI2PK = TENANT#<t>#TASKSTATUS#<status>` / `GSI2SK = TASK#<taskId>`.
 
 ### Access patterns
 
 - List my builds; get a build.
-- Get a build's BOM (parts needed).
+- Get a build's BOM (parts needed), including inspection-sourced needs.
+- List a build's task checklist ordered by phase + seq; get a task with its measurement results.
+- List a task template with its measurement specs; browse task templates by category.
+- List a build's open/failed tasks (by status).
 - List a build's orders; get an order and its lines.
 - Browse catalog by category; list a vendor's parts.
 - List open/backordered orders across builds; list a vendor's orders.
 - Resolve which tenants a user belongs to (drives the token trigger).
+
+The `TASK#<phase>#<seq>#<taskId>` sort key sorts a build's checklist directly in workflow order, so the guided experience is a single `Query` on `TENANT#<t>#BUILD#<id>` with an `SK begins_with "TASK#"`.
 
 The `USER#<sub>` reverse-lookup items are the only non-tenant-prefixed keys; they carry no business data and exist purely to resolve tenant membership for the pre-token-generation trigger.
 
@@ -149,7 +204,11 @@ The `USER#<sub>` reverse-lookup items are the only non-tenant-prefixed keys; the
 
 - `GET/POST /vendors`, `GET/PUT/DELETE /vendors/{id}`
 - `GET/POST /parts`, `GET/PUT/DELETE /parts/{id}` (catalog)
+- `GET/POST /task-templates`, `GET/PUT/DELETE /task-templates/{id}` (procedure library + specs)
 - `GET/POST /builds`, `GET/PUT/DELETE /builds/{id}`
+- `GET /builds/{id}/tasks` (guided checklist, phase-ordered), `POST /builds/{id}/tasks` (instantiate template)
+- `GET/PUT /tasks/{id}` (status/result/notes), `POST /tasks/{id}/measurements` (record readings → auto in/out-of-spec)
+- `POST /tasks/{id}/needs` (turn a finding into a BOM part need)
 - `GET/PUT /builds/{id}/bom` (manage needed parts)
 - `GET /builds/{id}/procurement` (computed dashboard)
 - `GET/POST /orders`, `GET /orders/{id}`, `PUT /orders/{id}/status`
@@ -198,13 +257,15 @@ scripts/               # seed data, local run helpers
 
 1. Scaffold SAM app (API GW + Lambda + DynamoDB + Cognito) and the dev environment / update script.
 2. Tenant-scoped single table + repository layer with isolation assertions.
-3. Domain module (procurement math, order lifecycle) + unit tests.
-4. Catalog CRUD (vendors, parts).
-5. Builds + BOM; procurement dashboard endpoint.
-6. Orders + order lines + receiving; order status transitions.
-7. Cognito Google federation + pre-token-generation trigger (mock locally, real on deploy).
-8. Cross-tenant isolation tests; `sam local` end-to-end smoke.
-9. Later: frontend SPA, notifications, attachments, inventory, PDF export.
+3. Domain module (procurement math, order lifecycle, measurement in/out-of-spec evaluation) + unit tests.
+4. Catalog CRUD (vendors, parts) and task-template CRUD (with measurement specs) + seed of standard templates.
+5. Builds + guided task checklist (instantiate templates, phase/seq ordering, status/result).
+6. Measurement capture with per-location readings and in/out-of-spec flagging.
+7. Findings → BOM: turn failed/out-of-spec tasks into part needs; BOM management.
+8. Orders + order lines + receiving; order status transitions; procurement dashboard.
+9. Cognito Google federation + pre-token-generation trigger (mock locally, real on deploy).
+10. Cross-tenant isolation tests; `sam local` end-to-end smoke (walk a build task → out-of-spec → need → order → receive).
+11. Later: frontend SPA, notifications, attachments/photos, inventory, PDF report export.
 
 ---
 
@@ -217,9 +278,11 @@ scripts/               # seed data, local run helpers
 
 ## 11. Open decisions (defaults in **bold**)
 
-1. Tenant assignment: **invitation-based membership** — or email-domain mapping (or both)?
-2. Multi-tenant users: **model supports it; MVP issues a claim for a single/default tenant** — or full tenant switching now?
-3. IaC: **AWS SAM** — or CDK (Python)?
-4. Lambda packaging: **single Lambda + Powertools router** — or one function per domain?
-5. Frontend: **API-first MVP (no UI yet)** — or include a minimal React SPA with Cognito Hosted UI?
-6. Units for engine specs (when spec tracking is added): **metric primary (mm/cc), imperial display toggle** — or imperial-first?
+1. "Valve frame" interpretation: **valvetrain (valves, springs, retainers, guides, rockers/pushrods)** — or did you mean something more specific?
+2. Task templates: **tenant-owned copies seeded from a standard library (fully customizable, tenant-isolated)** — or a shared read-only `SYSTEM#` template catalog?
+3. Tenant assignment: **invitation-based membership** — or email-domain mapping (or both)?
+4. Multi-tenant users: **model supports it; MVP issues a claim for a single/default tenant** — or full tenant switching now?
+5. IaC: **AWS SAM** — or CDK (Python)?
+6. Lambda packaging: **single Lambda + Powertools router** — or one function per domain?
+7. Frontend: **API-first MVP (no UI yet)** — or include a minimal React SPA with Cognito Hosted UI?
+8. Units for measurements: **metric primary (mm/cc), imperial display toggle** — or imperial-first?
