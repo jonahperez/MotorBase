@@ -56,6 +56,13 @@ const READINGS = {
   t6: { 'valve.stem_diameter_intake': 6.900, 'valve.stem_diameter_exhaust': 7.965, 'valve.seat_angle': 45.5, 'valve.margin_thickness_intake': 1.30, 'valve.to_guide_clearance_intake': 0.035, 'valve.to_guide_clearance_exhaust': 0.130, 'valve_spring.free_height_outer': 51.0, 'valve_spring.pressure_outer': 300 },
 };
 
+// Live measurement values (seeded from prefilled readings) + per-step notes.
+const VALUES = {};
+Object.entries(READINGS).forEach(([t, obj]) => { VALUES[t] = { ...obj }; });
+const NOTES = {};
+const getVal = (t, sk, mk) => (VALUES[t] && VALUES[t][`${sk}.${mk}`] != null) ? VALUES[t][`${sk}.${mk}`] : '';
+const setVal = (t, sk, mk, v) => { (VALUES[t] = VALUES[t] || {})[`${sk}.${mk}`] = v; };
+
 let BOM = [
   { part: 'Main bearing set — grade 2 (green)', pn: 'MB-VG33-STD', need: 1, ordered: 1, received: 1, src: 'inspection' },
   { part: 'Piston ring set (STD)', pn: 'RS-9150', need: 6, ordered: 6, received: 6, src: 'plan' },
@@ -75,7 +82,7 @@ const STATUS_BADGE = {
 };
 
 let SPEC = null;
-const state = { route: 'dashboard', buildId: null, tab: 'workflow', taskId: 't6' };
+const state = { route: 'dashboard', buildId: null, tab: 'workflow', taskId: 't5', step: 0 };
 
 /* ---------- spec helpers (real algorithms) ---------- */
 function findMeasurement(sectionKey, measKey) {
@@ -216,7 +223,74 @@ function renderWorkflow(body) {
     return `<div class="phase"><div class="phase-title">${p}<span class="line"></span></div>${ts.map(taskRow).join('')}</div>`;
   }).join('');
   body.innerHTML = `<div class="workflow"><div>${phasesHtml}</div><div id="meas-panel" class="card"></div></div>`;
-  renderMeasPanel();
+  renderTaskPanel();
+}
+
+function renderTaskPanel() {
+  const panel = $('#meas-panel');
+  const t = TASKS.find(x => x.id === state.taskId);
+  if (!t) { panel.innerHTML = '<p class="panel-sub">Select a task.</p>'; return; }
+  if (PROCEDURES[t.id]) return renderWalkthrough(panel, t);
+  renderMeasPanel(panel, t);
+}
+
+function renderWalkthrough(panel, t) {
+  const proc = PROCEDURES[t.id];
+  const n = proc.steps.length;
+  const si = Math.max(0, Math.min(n - 1, state.step));
+  const step = proc.steps[si];
+  const stepDone = i => proc.steps[i].m.length && proc.steps[i].m.every(([sk, mk]) => getVal(t.id, sk, mk) !== '');
+
+  const stepper = proc.steps.map((s, i) => {
+    const done = stepDone(i), cur = i === si;
+    return `<button class="wstep ${cur ? 'cur' : ''} ${done ? 'done' : ''}" data-gostep="${i}"><span class="wnum">${done && !cur ? '✓' : i + 1}</span><span class="wt">${s.title}</span></button>`;
+  }).join('<span class="wsep"></span>');
+
+  const rows = step.m.map(([sk, mk], idx) => {
+    const m = findMeasurement(sk, mk); if (!m) return '';
+    const val = getVal(t.id, sk, mk); const e = evaluate(m, val);
+    return `<div class="meas-row wmeas">
+      <div class="meas-name"><span class="mknum">${idx + 1}</span>${m.label}<small>${specRangeText(m)} ${m.unit}</small></div>
+      <div class="meas-input"><input type="number" step="0.001" value="${val !== '' ? val : ''}" data-mv="${t.id}|${sk}|${mk}"><span class="unit">${m.unit}</span></div>
+      <div data-badge="${sk}.${mk}">${badge(e.cls, e.text)}</div>
+    </div>`;
+  }).join('');
+
+  const anyBeyond = step.m.some(([sk, mk]) => evaluate(findMeasurement(sk, mk), getVal(t.id, sk, mk)).text === 'Beyond limit');
+  const noteKey = `${t.id}.${si}`;
+  panel.innerHTML = `
+    <div class="wk-head">
+      <div><h3 class="panel-title">${t.name}</h3><p class="panel-sub">Step ${si + 1} of ${n} · ${step.title}</p></div>
+      <div class="wk-nav"><button class="btn sm" data-stepnav="-1" ${si === 0 ? 'disabled' : ''}>‹ Prev</button><button class="btn primary sm" data-stepnav="1">${si === n - 1 ? 'Finish ✓' : 'Next ›'}</button></div>
+    </div>
+    <div class="wstepper">${stepper}</div>
+    <div class="wk-body">
+      <div class="diagram">${DIAGRAMS[step.diagram] || ''}</div>
+      <div class="wk-side">
+        <div class="wk-instr"><span class="chip">🛠 ${step.tool}</span><p>${step.instruction}</p>${step.caution ? `<div class="mini-caution">⚠ ${step.caution}</div>` : ''}</div>
+        <div class="wk-meas">${rows}</div>
+        ${anyBeyond ? `<div class="callout"><span>⚠</span><div><b>A reading is beyond the service limit.</b> Flag the replacement part.</div><button class="btn primary sm" data-addneed="1">${ICONS.plus} Add to parts needed</button></div>` : ''}
+        <label class="wk-notes-l">Notes for this step</label>
+        <textarea class="wk-notes" data-note="${noteKey}" placeholder="Observations, tooling, sublet machine work, decisions…">${NOTES[noteKey] || ''}</textarea>
+      </div>
+    </div>`;
+
+  panel.querySelectorAll('input[data-mv]').forEach(inp => inp.addEventListener('input', () => {
+    const [tid, sk, mk] = inp.dataset.mv.split('|');
+    setVal(tid, sk, mk, inp.value);
+    const e = evaluate(findMeasurement(sk, mk), inp.value);
+    const b = panel.querySelector(`[data-badge="${sk}.${mk}"]`); if (b) b.innerHTML = badge(e.cls, e.text);
+  }));
+  const ta = panel.querySelector('textarea[data-note]');
+  if (ta) ta.addEventListener('input', () => { NOTES[ta.dataset.note] = ta.value; });
+  const addn = panel.querySelector('[data-addneed]');
+  if (addn) addn.addEventListener('click', () => {
+    const b = step.m.map(([sk, mk]) => [sk, mk, findMeasurement(sk, mk)]).find(([sk, mk, m]) => evaluate(m, getVal(t.id, sk, mk)).text === 'Beyond limit');
+    const label = b ? b[2].label : 'Replacement part';
+    BOM.push({ part: label + ' — replace', pn: '—', need: 1, ordered: 0, received: 0, src: 'inspection' });
+    toast('Added “' + label + '” to parts needed');
+    state.tab = 'bom'; renderBuild();
+  });
 }
 
 function taskRow(t) {
@@ -231,10 +305,7 @@ function taskRow(t) {
   </div>`;
 }
 
-function renderMeasPanel() {
-  const panel = $('#meas-panel');
-  const t = TASKS.find(x => x.id === state.taskId);
-  if (!t) { panel.innerHTML = '<p class="panel-sub">Select a task.</p>'; return; }
+function renderMeasPanel(panel, t) {
   if (!t.m.length) {
     panel.innerHTML = `<h3 class="panel-title">${t.name}</h3><p class="panel-sub">${t.sub || 'No recorded measurements for this task.'}</p><button class="btn">Mark complete</button>`;
     return;
@@ -371,7 +442,7 @@ function toast(msg) {
 
 function navigate(route, arg) {
   state.route = route;
-  if (route === 'build') { state.buildId = arg; state.tab = 'workflow'; }
+  if (route === 'build') { state.buildId = arg; state.tab = 'workflow'; state.step = 0; }
   window.scrollTo(0, 0);
   render();
 }
@@ -384,7 +455,17 @@ document.addEventListener('click', e => {
   const tab = e.target.closest('[data-tab]');
   if (tab) { state.tab = tab.dataset.tab; renderBuild(); return; }
   const task = e.target.closest('[data-task]');
-  if (task) { state.taskId = task.dataset.task; renderWorkflow($('#tab-body')); return; }
+  if (task) { state.taskId = task.dataset.task; state.step = 0; renderWorkflow($('#tab-body')); return; }
+  const sn = e.target.closest('[data-stepnav]');
+  if (sn) {
+    const proc = PROCEDURES[state.taskId]; if (!proc) return;
+    const d = +sn.dataset.stepnav, n = proc.steps.length;
+    if (state.step + d >= n) { toast('Inspection recorded ✓'); return; }
+    state.step = Math.max(0, Math.min(n - 1, state.step + d));
+    renderWorkflow($('#tab-body')); return;
+  }
+  const gs = e.target.closest('[data-gostep]');
+  if (gs) { state.step = +gs.dataset.gostep; renderWorkflow($('#tab-body')); return; }
 });
 
 $('#google-signin').addEventListener('click', () => {
