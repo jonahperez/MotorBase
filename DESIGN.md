@@ -214,7 +214,8 @@ The `USER#<sub>` reverse-lookup items are the only non-tenant-prefixed keys; the
 - **Cognito User Pool** (Google federation, `custom:tenant_id`, pre-token-gen trigger) — see §3.
 - **API Gateway HTTP API** with a Cognito **JWT authorizer**.
 - **Lambda (Python 3.12)** using **AWS Lambda Powertools for Python** (routing via the API Gateway resolver, plus structured logging, tracing, metrics) and `boto3` for DynamoDB. **Pydantic** models for request/response validation.
-- Default packaging: **one Lambda + Powertools router** (simpler cold starts and local dev), with the option to split into per-domain functions later.
+- Packaging: **one Lambda function per domain** (builds/tasks, catalog, orders, engine-specs, and the Cognito auth trigger), each using Powertools. This gives clearer separation, independent scaling, and least-privilege IAM per domain (see §12).
+- Units: **metric is canonical/stored** (mm, cc); the API accepts imperial entry and supports an imperial display toggle, converting to metric on store (see §12).
 - **DynamoDB** single table with two GSIs (see §5).
 
 ### Proposed API surface
@@ -261,7 +262,7 @@ Local dev/test loop (no AWS account required to build and test the API):
 ```
 template.yaml          # SAM: API GW, Lambda, DynamoDB, Cognito (+Google IdP), triggers
 src/motorbase/
-  handlers/            # Powertools router + route handlers
+  handlers/            # one handler per domain (Powertools) + shared routing
   models/              # pydantic request/response models
   repo/                # DynamoDB single-table access + tenant-scoping assertions
   domain/              # procurement math, order lifecycle
@@ -290,7 +291,7 @@ scripts/               # seed data, local run helpers
 
 ## 10. What runs locally vs. needs cloud
 
-- **Local (no AWS account):** SAM app, DynamoDB single table + repo, Powertools router, procurement domain, seed data, `pytest` (incl. cross-tenant isolation), full API via `sam local` with a mock authorizer.
+- **Local (no AWS account):** SAM app, DynamoDB single table + repo, per-domain Powertools handlers, procurement domain, seed data, `pytest` (incl. cross-tenant isolation), full API via `sam local` with a mock authorizer.
 - **Cloud deploy (requires credentials):** an AWS account and a **Google OAuth client id/secret** (with Cognito callback URLs) to wire real Google sign-in through Cognito. Requested only at deploy time.
 
 ---
@@ -303,13 +304,25 @@ Concrete artifacts in this repo (derived from a factory-manual EM section):
 
 - `schema/engine-spec.schema.json` — the JSON Schema (draft 2020-12) that defines/validates the standardized template.
 - `schema/engine-spec.template.json` — the blank downloadable template (all measurement keys, empty values).
-- `schema/examples/vg33e.engine-spec.json` — a filled VG33E example (20 sections, ~101 measurements: cylinder head, camshaft, valve, valve guide/seat/spring, lifter, rocker, block, piston, rings, pin, rod, crank, bearings, compression, valve timing, misc).
+- `schema/examples/vg33e.engine-spec.json` — a filled VG33E example (21 sections, ~116 measurements: cylinder head, camshaft, valve, valve guide/seat/spring, lifter, rocker, block, piston, rings, pin, rod, crank, bearings, compression pressure, compression ratio + volumes, valve timing, misc).
 - `scripts/make_blank_template.py` — derives the blank template from a filled spec (the same way the download link is generated server-side).
 - `scripts/spec_eval.py` — reference evaluator that classifies a reading as `IN_SPEC` / `OUT_OF_STANDARD` / `BEYOND_LIMIT`, or resolves the matching grade for selective-fit parts.
+- `scripts/compression_ratio.py` — reference math for the `compression_ratio` section (swept/deck/gasket/clearance volumes and the static ratio), verified against the reference article.
 
 ### Format
 
-Top level is `{ specVersion, engine, sections[] }`. Each `section` groups `measurements[]` by component; each measurement carries `key`, `label`, `unit`, optional `appliesTo` (intake/exhaust/outer/inner), `perLocation` + `locations` (per cylinder/journal/valve), a `standard` range, a `service`/wear `limit`, `nominal` (single-target specs like valve clearance 0), and `grades[]` for graded/selective-fit parts (piston grades, bearing grades with ID color, oversizes/undersizes). This directly models the SDS distinction between a standard/new range and a wear limit, plus per-location and per-grade values.
+Top level is `{ specVersion, engine, sections[] }`. Each `section` groups `measurements[]` by component; each measurement carries `key`, `label`, `unit`, optional `appliesTo` (intake/exhaust/outer/inner), `perLocation` + `locations` (per cylinder/journal/valve), a `standard` range, a `service`/wear `limit`, `nominal` (single-target specs like valve clearance 0), and `grades[]` for graded/selective-fit parts (piston grades, bearing grades with ID color, oversizes/undersizes). Computed values use `derived: true` plus a `formula` string that references other measurement keys. This directly models the SDS distinction between a standard/new range and a wear limit, plus per-location, per-grade, and derived values.
+
+### Compression ratio and volumes
+
+The `compression_ratio` section captures the static (initial) compression ratio and every volume used to compute it, following the standard engine-builder method:
+
+- `compression_ratio = (swept_volume + clearance_volume) / clearance_volume`
+- `swept_volume = 0.7854 * bore^2 * stroke / 1000` (per cylinder, mm to cc)
+- `clearance_volume = combustion_chamber_volume + piston_dome_dish_volume + ringland_crevice_volume + deck_volume + head_gasket_volume`
+- `deck_volume = 0.7854 * bore^2 * deck_clearance / 1000`, `head_gasket_volume = 0.7854 * head_gasket_bore^2 * head_gasket_compressed_thickness / 1000`
+
+Measured inputs (chamber and piston dome/dish are cc'd with a burette; deck clearance, block deck height, gasket bore/thickness, compression height are measured) drive the derived volumes and ratio. `scripts/compression_ratio.py` implements this and is verified against the reference article (a 632 c.i. big-block at 15.92:1) and a VG33E build-up.
 
 ### Storage (`EngineSpec` entity)
 
@@ -333,15 +346,20 @@ Browse by manufacturer/family via GSI1 (`GSI1PK = TENANT#<t>#ENGINEMFR#<mfr>`). 
 
 A build references an engine type + `EngineSpec` revision. When a `BuildTask` records a `MeasurementResult` for a `spec_key`, MotorBase resolves that key in the build's `EngineSpec` and classifies the reading (in-spec / out-of-standard / beyond-limit) — and for graded specs, returns the selected grade so the correct graded part flows into the BOM (see §7 selective fit). The `EngineSpec` is the authoritative source of numbers; task templates only reference `spec_key`s and describe procedure.
 
-## 12. Open decisions (defaults in **bold**)
+## 12. Decisions
 
-1. "Valve frame" interpretation: **valvetrain (valves, springs, retainers, guides, rockers/pushrods)** — or did you mean something more specific?
-2. Task templates: **tenant-owned copies seeded from a standard library (fully customizable, tenant-isolated)** — or a shared read-only `SYSTEM#` template catalog?
-3. Tenant assignment: **invitation-based membership** — or email-domain mapping (or both)?
-4. Multi-tenant users: **model supports it; MVP issues a claim for a single/default tenant** — or full tenant switching now?
-5. IaC: **AWS SAM** — or CDK (Python)?
-6. Lambda packaging: **single Lambda + Powertools router** — or one function per domain?
-7. Frontend: **API-first MVP (no UI yet)** — or include a minimal React SPA with Cognito Hosted UI?
-8. Units for measurements: **metric primary (mm/cc) with imperial display toggle** — the source manual lists both (e.g. `0.1 mm (0.004 in)`), so storing metric + rendering both fits well. OK, or imperial-first?
+### Resolved
+
+1. **Valvetrain** — "valve frame" means the valvetrain (valves, springs, retainers, guides, rockers/pushrods).
+2. **Tenant assignment: invitation-based membership** — an admin invites an email into a tenant; the pre-token-generation trigger resolves the pending membership on first Google login.
+3. **Multi-tenant users: single/default tenant for MVP** — the data model supports multiple memberships, but the token issues a claim for one default tenant now; full tenant switching is deferred.
+4. **IaC: AWS SAM.**
+5. **Lambda packaging: one function per domain** (builds/tasks, catalog, orders, engine-specs, auth trigger), each using AWS Lambda Powertools. Trades a little more infra for clearer separation, independent scaling, and least-privilege IAM per domain.
+6. **Units: metric is the canonical/stored unit** (mm, cc), since the engines worked on are specified in metric. Because many engine-builder tools report in imperial, the app accepts **imperial entry** and offers an **imperial display toggle**, converting to metric on store. The spec files already carry both (e.g. `0.1 mm (0.004 in)`).
+
+### Still open (defaults in **bold**)
+
+7. Task templates: **tenant-owned copies seeded from a standard library (fully customizable, tenant-isolated)** — or a shared read-only `SYSTEM#` template catalog?
+8. Frontend: **API-first MVP (no UI yet)** — or include a minimal React SPA with Cognito Hosted UI?
 9. Graded/selective-fit parts: **model grades on `Part` + per-grade spec sub-ranges now, with measurement-driven part selection** — or defer grading to a later phase?
 10. Spec seeding: **ship a few generic example task templates; let tenants enter/import their own manufacturer specs (no redistribution of copyrighted manuals)** — or build a per-engine template library later?
