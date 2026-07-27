@@ -1,0 +1,287 @@
+{
+  "specVersion": "1.0",
+  "engine": {
+    "type": "VG33E",
+    "family": "VG",
+    "manufacturer": "Nissan",
+    "displacementCc": 3275,
+    "configuration": "V6",
+    "boreMm": 91.5,
+    "strokeMm": 83.0,
+    "compressionRatio": 8.9,
+    "valveArrangement": "OHC",
+    "firingOrder": "1-2-3-4-5-6",
+    "pistonRingsCompression": 2,
+    "pistonRingsOil": 1,
+    "mainBearingCount": 4,
+    "units": "metric",
+    "source": "Factory service manual, Engine Mechanical (EM) section - values entered by user",
+    "revision": "example-1",
+    "notes": "Illustrative example. Verify all values against the service manual for your specific engine before use."
+  },
+  "sections": [
+    {
+      "key": "compression_pressure",
+      "title": "Compression pressure",
+      "component": "cylinders",
+      "measurements": [
+        { "key": "standard", "label": "Compression pressure (standard)", "unit": "kPa", "nominal": 1196, "atValue": 300, "atUnit": "rpm", "perLocation": true, "locations": ["cyl1", "cyl2", "cyl3", "cyl4", "cyl5", "cyl6"] },
+        { "key": "minimum", "label": "Compression pressure (minimum)", "unit": "kPa", "limit": { "min": 883 }, "atValue": 300, "atUnit": "rpm" },
+        { "key": "differential_limit", "label": "Differential limit between cylinders", "unit": "kPa", "limit": { "max": 98 } }
+      ]
+    },
+    {
+      "key": "compression_ratio",
+      "title": "Compression ratio and volumes",
+      "component": "assembly",
+      "measurements": [
+        { "key": "bore", "label": "Bore (reference)", "unit": "mm", "nominal": 91.5, "notes": "Reference for volume calcs; see engine.boreMm. Use the measured cylinder bore for accuracy." },
+        { "key": "stroke", "label": "Stroke (reference)", "unit": "mm", "nominal": 83.0, "notes": "Reference for volume calcs; see engine.strokeMm." },
+        { "key": "combustion_chamber_volume", "label": "Combustion chamber volume", "unit": "cc", "perLocation": true, "locations": ["cyl1", "cyl2", "cyl3", "cyl4", "cyl5", "cyl6"], "notes": "Measured by cc'ing the inverted cylinder head (both valves and spark plug installed) with a burette." },
+        { "key": "piston_dome_dish_volume", "label": "Piston dome/dish volume", "unit": "cc", "perLocation": true, "locations": ["cyl1", "cyl2", "cyl3", "cyl4", "cyl5", "cyl6"], "notes": "Measured with a burette by sealing the piston at TDC under an acrylic plate. Positive = dish (adds volume); negative = dome (subtracts volume)." },
+        { "key": "ringland_crevice_volume", "label": "Top ring-land crevice volume", "unit": "cc", "nominal": 1.0, "notes": "Small volume around the top ring land above the top ring; approx. 1 cc per the reference article." },
+        { "key": "deck_clearance", "label": "Deck clearance (piston-to-deck)", "unit": "mm", "notes": "Distance from the piston flat to the deck at TDC. Positive = piston below deck. Builders commonly target 0.13-0.25 mm (.005-.010 in) down the bore." },
+        { "key": "head_gasket_bore", "label": "Head gasket bore", "unit": "mm", "notes": "Compressed head gasket bore diameter." },
+        { "key": "head_gasket_compressed_thickness", "label": "Head gasket compressed thickness", "unit": "mm", "notes": "Compressed (installed) head gasket thickness." },
+        { "key": "block_deck_height", "label": "Block deck height", "unit": "mm", "notes": "Crankshaft centerline to block deck. Verifies half-stroke + rod length + compression height + piston-to-deck; errors here shift the ratio significantly." },
+        { "key": "piston_compression_height", "label": "Piston compression height", "unit": "mm", "notes": "Pin centerline to the piston flat top (compression distance)." },
+        { "key": "swept_volume", "label": "Swept (displacement) volume per cylinder", "unit": "cc", "derived": true, "formula": "0.7854 * bore^2 * stroke / 1000", "nominal": 545.8, "notes": "mm -> cc (divide by 1000). Bottom-dead-center to top-dead-center displacement." },
+        { "key": "deck_volume", "label": "Deck clearance volume", "unit": "cc", "derived": true, "formula": "0.7854 * bore^2 * deck_clearance / 1000", "notes": "Cylinder volume between the piston flat and the deck at TDC." },
+        { "key": "head_gasket_volume", "label": "Head gasket volume", "unit": "cc", "derived": true, "formula": "0.7854 * head_gasket_bore^2 * head_gasket_compressed_thickness / 1000" },
+        { "key": "clearance_volume", "label": "Clearance volume (total above TDC)", "unit": "cc", "derived": true, "formula": "combustion_chamber_volume + piston_dome_dish_volume + ringland_crevice_volume + deck_volume + head_gasket_volume" },
+        { "key": "compression_ratio", "label": "Static (initial) compression ratio", "unit": "ratio", "derived": true, "formula": "(swept_volume + clearance_volume) / clearance_volume", "nominal": 8.9, "notes": "Initial/static compression ratio; VG33E published value is 8.9:1." }
+      ]
+    },
+    {
+      "key": "valve_timing",
+      "title": "Valve timing",
+      "component": "valvetrain",
+      "measurements": [
+        { "key": "a", "label": "Valve timing a", "unit": "deg", "nominal": 240, "notes": "See EM valve-timing diagram; verify against manual." },
+        { "key": "b", "label": "Valve timing b", "unit": "deg", "nominal": 244 },
+        { "key": "c", "label": "Valve timing c", "unit": "deg", "nominal": 4 },
+        { "key": "d", "label": "Valve timing d", "unit": "deg", "nominal": 60 },
+        { "key": "e", "label": "Valve timing e", "unit": "deg", "nominal": 8 },
+        { "key": "f", "label": "Valve timing f", "unit": "deg", "nominal": 51 }
+      ]
+    },
+    {
+      "key": "cylinder_head",
+      "title": "Cylinder head",
+      "component": "cylinder_head",
+      "measurements": [
+        { "key": "surface_flatness", "label": "Head surface flatness", "unit": "mm", "standard": { "max": 0.1 }, "notes": "Less than 0.1 mm; resurface or replace if beyond." },
+        { "key": "height", "label": "Nominal cylinder head height", "unit": "mm", "standard": { "min": 106.8, "max": 107.2 } },
+        { "key": "resurface_limit_combined", "label": "Resurfacing limit (head + block)", "unit": "mm", "limit": { "max": 0.2 }, "notes": "A (head) + B (block) resurfacing combined." }
+      ]
+    },
+    {
+      "key": "camshaft",
+      "title": "Camshaft",
+      "component": "valvetrain",
+      "measurements": [
+        { "key": "runout", "label": "Camshaft runout", "unit": "mm", "standard": { "max": 0.04 }, "limit": { "max": 0.1 }, "notes": "Total indicator reading at center journal." },
+        { "key": "cam_height_intake", "label": "Cam height (intake)", "unit": "mm", "appliesTo": "intake", "standard": { "min": 39.242, "max": 39.432 } },
+        { "key": "cam_height_exhaust", "label": "Cam height (exhaust)", "unit": "mm", "appliesTo": "exhaust", "standard": { "min": 38.943, "max": 39.133 } },
+        { "key": "cam_wear_limit", "label": "Cam height wear limit", "unit": "mm", "limit": { "max": 0.15 } },
+        { "key": "journal_clearance", "label": "Camshaft journal clearance", "unit": "mm", "standard": { "min": 0.060, "max": 0.105 }, "limit": { "max": 0.15 } },
+        { "key": "bearing_inner_diameter", "label": "Camshaft bearing inner diameter", "unit": "mm", "notes": "By journal position.", "grades": [ { "grade": "A", "min": 47.000, "max": 47.025 }, { "grade": "B", "min": 42.500, "max": 42.525 }, { "grade": "C", "min": 48.000, "max": 48.025 } ] },
+        { "key": "journal_outer_diameter", "label": "Camshaft journal outer diameter", "unit": "mm", "notes": "By journal position.", "grades": [ { "grade": "A", "min": 46.920, "max": 46.940 }, { "grade": "B", "min": 42.420, "max": 42.440 }, { "grade": "C", "min": 47.920, "max": 47.940 } ] },
+        { "key": "end_play", "label": "Camshaft end play", "unit": "mm", "standard": { "min": 0.03, "max": 0.06 } }
+      ]
+    },
+    {
+      "key": "valve",
+      "title": "Valve",
+      "component": "valvetrain",
+      "measurements": [
+        { "key": "head_diameter_intake", "label": "Valve head diameter (intake)", "unit": "mm", "appliesTo": "intake", "standard": { "min": 41.95, "max": 42.25 } },
+        { "key": "head_diameter_exhaust", "label": "Valve head diameter (exhaust)", "unit": "mm", "appliesTo": "exhaust", "standard": { "min": 35.0, "max": 35.2 } },
+        { "key": "length_intake", "label": "Valve length (intake)", "unit": "mm", "appliesTo": "intake", "standard": { "min": 125.3, "max": 125.9 } },
+        { "key": "length_exhaust", "label": "Valve length (exhaust)", "unit": "mm", "appliesTo": "exhaust", "standard": { "min": 124.2, "max": 124.8 } },
+        { "key": "stem_diameter_intake", "label": "Valve stem diameter (intake)", "unit": "mm", "appliesTo": "intake", "standard": { "min": 6.965, "max": 6.980 } },
+        { "key": "stem_diameter_exhaust", "label": "Valve stem diameter (exhaust)", "unit": "mm", "appliesTo": "exhaust", "standard": { "min": 7.962, "max": 7.970 } },
+        { "key": "seat_angle", "label": "Valve seat angle", "unit": "deg", "standard": { "min": 45.25, "max": 45.75 }, "notes": "45 deg 15 min - 45 deg 45 min." },
+        { "key": "margin_thickness_intake", "label": "Valve margin thickness T (intake)", "unit": "mm", "appliesTo": "intake", "standard": { "min": 1.15, "max": 1.45 }, "limit": { "min": 0.5 }, "notes": "Replace when worn below 0.5 mm." },
+        { "key": "margin_thickness_exhaust", "label": "Valve margin thickness T (exhaust)", "unit": "mm", "appliesTo": "exhaust", "standard": { "min": 1.35, "max": 1.65 }, "limit": { "min": 0.5 } },
+        { "key": "stem_end_grinding_limit", "label": "Valve stem end grinding limit", "unit": "mm", "limit": { "max": 0.2 }, "notes": "Grinding allowance for stem tip: 0.2 mm or less." },
+        { "key": "clearance_intake", "label": "Valve clearance (intake)", "unit": "mm", "appliesTo": "intake", "nominal": 0, "notes": "Hydraulic valve lifters." },
+        { "key": "clearance_exhaust", "label": "Valve clearance (exhaust)", "unit": "mm", "appliesTo": "exhaust", "nominal": 0, "notes": "Hydraulic valve lifters." },
+        { "key": "deflection_limit", "label": "Valve deflection limit", "unit": "mm", "limit": { "max": 0.20 }, "notes": "Dial gauge reading in valve-guide wear direction." },
+        { "key": "to_guide_clearance_intake", "label": "Valve to valve-guide clearance (intake)", "unit": "mm", "appliesTo": "intake", "standard": { "min": 0.020, "max": 0.053 }, "limit": { "max": 0.10 } },
+        { "key": "to_guide_clearance_exhaust", "label": "Valve to valve-guide clearance (exhaust)", "unit": "mm", "appliesTo": "exhaust", "standard": { "min": 0.040, "max": 0.049 }, "limit": { "max": 0.10 } }
+      ]
+    },
+    {
+      "key": "valve_guide",
+      "title": "Valve guide",
+      "component": "cylinder_head",
+      "measurements": [
+        { "key": "outer_diameter_intake", "label": "Valve guide outer diameter (intake)", "unit": "mm", "appliesTo": "intake", "grades": [ { "grade": "STD", "min": 11.023, "max": 11.034 }, { "grade": "Service", "min": 11.223, "max": 11.234 } ] },
+        { "key": "outer_diameter_exhaust", "label": "Valve guide outer diameter (exhaust)", "unit": "mm", "appliesTo": "exhaust", "grades": [ { "grade": "STD", "min": 12.023, "max": 12.034 }, { "grade": "Service", "min": 12.223, "max": 12.234 } ] },
+        { "key": "inner_diameter_finished_intake", "label": "Valve guide inner diameter, finished (intake)", "unit": "mm", "appliesTo": "intake", "standard": { "min": 7.000, "max": 7.018 } },
+        { "key": "inner_diameter_finished_exhaust", "label": "Valve guide inner diameter, finished (exhaust)", "unit": "mm", "appliesTo": "exhaust", "standard": { "min": 8.000, "max": 8.011 } },
+        { "key": "head_guide_hole_intake", "label": "Cylinder head valve-guide hole diameter (intake)", "unit": "mm", "appliesTo": "intake", "grades": [ { "grade": "STD", "min": 10.975, "max": 10.996 }, { "grade": "Service", "min": 11.175, "max": 11.196 } ] },
+        { "key": "head_guide_hole_exhaust", "label": "Cylinder head valve-guide hole diameter (exhaust)", "unit": "mm", "appliesTo": "exhaust", "grades": [ { "grade": "STD", "min": 11.975, "max": 11.996 }, { "grade": "Service", "min": 12.175, "max": 12.196 } ] },
+        { "key": "interference_fit", "label": "Valve guide interference fit", "unit": "mm", "standard": { "min": 0.027, "max": 0.059 } },
+        { "key": "projection_l", "label": "Valve guide projection L", "unit": "mm", "standard": { "min": 13.2, "max": 13.4 } }
+      ]
+    },
+    {
+      "key": "valve_seat",
+      "title": "Valve seat",
+      "component": "cylinder_head",
+      "measurements": [
+        { "key": "face_angle_intake", "label": "Seat face angle (intake)", "unit": "deg", "appliesTo": "intake", "nominal": 45 },
+        { "key": "face_angle_exhaust", "label": "Seat face angle (exhaust)", "unit": "deg", "appliesTo": "exhaust", "nominal": 45 },
+        { "key": "contact_width_intake", "label": "Seat contacting width W (intake)", "unit": "mm", "appliesTo": "intake", "nominal": 1.75 },
+        { "key": "contact_width_exhaust", "label": "Seat contacting width W (exhaust)", "unit": "mm", "appliesTo": "exhaust", "nominal": 1.7 },
+        { "key": "diameter_intake", "label": "Valve seat diameter (intake)", "unit": "mm", "appliesTo": "intake", "standard": { "min": 41.6, "max": 41.8 } },
+        { "key": "diameter_exhaust", "label": "Valve seat diameter (exhaust)", "unit": "mm", "appliesTo": "exhaust", "standard": { "min": 34.4, "max": 34.6 } }
+      ]
+    },
+    {
+      "key": "valve_spring",
+      "title": "Valve spring",
+      "component": "valvetrain",
+      "measurements": [
+        { "key": "free_height_outer", "label": "Free height (outer)", "unit": "mm", "appliesTo": "outer", "nominal": 51.2 },
+        { "key": "free_height_inner", "label": "Free height (inner)", "unit": "mm", "appliesTo": "inner", "nominal": 44.1 },
+        { "key": "pressure_outer", "label": "Spring pressure (outer)", "unit": "N", "appliesTo": "outer", "nominal": 523.7, "atValue": 30.0, "atUnit": "mm", "limit": { "min": 228.5 }, "notes": "Standard at 30.0 mm; limit measured at 25.0 mm." },
+        { "key": "pressure_inner", "label": "Spring pressure (inner)", "unit": "N", "appliesTo": "inner", "nominal": 255.0, "atValue": 25.0, "atUnit": "mm", "limit": { "min": 225.6 }, "notes": "Standard and limit at 25.0 mm." },
+        { "key": "out_of_square_outer", "label": "Out-of-square (outer)", "unit": "mm", "appliesTo": "outer", "standard": { "max": 2.2 }, "notes": "Less than 2.2 mm." },
+        { "key": "out_of_square_inner", "label": "Out-of-square (inner)", "unit": "mm", "appliesTo": "inner", "standard": { "max": 1.9 }, "notes": "Less than 1.9 mm." }
+      ]
+    },
+    {
+      "key": "hydraulic_lifter",
+      "title": "Hydraulic valve lifter",
+      "component": "valvetrain",
+      "measurements": [
+        { "key": "outside_diameter", "label": "Lifter outside diameter", "unit": "mm", "standard": { "min": 15.947, "max": 15.957 } },
+        { "key": "guide_inside_diameter", "label": "Lifter guide inside diameter", "unit": "mm", "standard": { "min": 16.000, "max": 16.013 } },
+        { "key": "clearance", "label": "Clearance between lifter and guide", "unit": "mm", "standard": { "min": 0.043, "max": 0.066 } }
+      ]
+    },
+    {
+      "key": "rocker",
+      "title": "Rocker shaft and rocker arm",
+      "component": "valvetrain",
+      "measurements": [
+        { "key": "shaft_outer_diameter", "label": "Rocker shaft outer diameter", "unit": "mm", "standard": { "min": 17.979, "max": 18.000 } },
+        { "key": "arm_inner_diameter", "label": "Rocker arm inner diameter", "unit": "mm", "standard": { "min": 18.007, "max": 18.028 } },
+        { "key": "clearance", "label": "Clearance between shaft and arm", "unit": "mm", "standard": { "min": 0.007, "max": 0.049 } }
+      ]
+    },
+    {
+      "key": "cylinder_block",
+      "title": "Cylinder block",
+      "component": "block",
+      "measurements": [
+        { "key": "surface_flatness", "label": "Block surface flatness", "unit": "mm", "standard": { "max": 0.03 }, "limit": { "max": 0.10 }, "notes": "Standard less than 0.03 mm." },
+        { "key": "bore_inner_diameter", "label": "Cylinder bore inner diameter", "unit": "mm", "perLocation": true, "locations": ["cyl1", "cyl2", "cyl3", "cyl4", "cyl5", "cyl6"], "grades": [ { "grade": "1", "min": 91.50, "max": 91.51 }, { "grade": "2", "min": 91.51, "max": 91.52 }, { "grade": "3", "min": 91.52, "max": 91.53 } ] },
+        { "key": "bore_wear_limit", "label": "Cylinder bore wear limit", "unit": "mm", "limit": { "max": 0.20 } },
+        { "key": "out_of_round", "label": "Bore out-of-round (X - Y)", "unit": "mm", "standard": { "max": 0.015 }, "notes": "Less than 0.015 mm." },
+        { "key": "taper", "label": "Bore taper (A - B or A - C)", "unit": "mm", "standard": { "max": 0.015 }, "notes": "Less than 0.015 mm." },
+        { "key": "main_journal_inner_diameter", "label": "Main journal inner diameter", "unit": "mm", "grades": [ { "grade": "0", "min": 66.645, "max": 66.654 }, { "grade": "1", "min": 66.654, "max": 66.663 }, { "grade": "2", "min": 66.663, "max": 66.672 } ] },
+        { "key": "bore_diff_between_cylinders", "label": "Difference in inner diameter between cylinders", "unit": "mm", "standard": { "max": 0.05 }, "notes": "Less than 0.05 mm." }
+      ]
+    },
+    {
+      "key": "piston",
+      "title": "Piston",
+      "component": "pistons",
+      "measurements": [
+        { "key": "skirt_diameter", "label": "Piston skirt diameter A", "unit": "mm", "perLocation": true, "locations": ["cyl1", "cyl2", "cyl3", "cyl4", "cyl5", "cyl6"], "notes": "Measured at 'a' = 13.5 mm from piston bottom.", "grades": [ { "grade": "1", "min": 91.465, "max": 91.475 }, { "grade": "2", "min": 91.475, "max": 91.485 }, { "grade": "3", "min": 91.485, "max": 91.495 }, { "grade": "0.25 OS", "min": 91.715, "max": 91.745 }, { "grade": "0.50 OS", "min": 91.965, "max": 91.995 } ] },
+        { "key": "pin_hole_diameter", "label": "Piston pin hole diameter", "unit": "mm", "standard": { "min": 20.969, "max": 20.981 } },
+        { "key": "to_cylinder_clearance", "label": "Piston to cylinder clearance", "unit": "mm", "standard": { "min": 0.025, "max": 0.045 }, "limit": { "max": 0.095 } }
+      ]
+    },
+    {
+      "key": "piston_ring",
+      "title": "Piston ring",
+      "component": "rings",
+      "measurements": [
+        { "key": "side_clearance_top", "label": "Side clearance (top)", "unit": "mm", "appliesTo": "top", "standard": { "min": 0.024, "max": 0.076 }, "limit": { "max": 0.11 } },
+        { "key": "side_clearance_2nd", "label": "Side clearance (2nd)", "unit": "mm", "appliesTo": "2nd", "standard": { "min": 0.030, "max": 0.070 }, "limit": { "max": 0.10 } },
+        { "key": "side_clearance_oil", "label": "Side clearance (oil)", "unit": "mm", "appliesTo": "oil", "standard": { "min": 0.015, "max": 0.185 } },
+        { "key": "ring_gap_top", "label": "Ring gap (top)", "unit": "mm", "appliesTo": "top", "standard": { "min": 0.21, "max": 0.40 }, "limit": { "max": 0.54 } },
+        { "key": "ring_gap_2nd", "label": "Ring gap (2nd)", "unit": "mm", "appliesTo": "2nd", "standard": { "min": 0.50, "max": 0.69 }, "limit": { "max": 0.80 } },
+        { "key": "ring_gap_oil", "label": "Ring gap (oil rail ring)", "unit": "mm", "appliesTo": "oil", "standard": { "min": 0.20, "max": 0.69 }, "limit": { "max": 0.95 } }
+      ]
+    },
+    {
+      "key": "piston_pin",
+      "title": "Piston pin",
+      "component": "pistons",
+      "measurements": [
+        { "key": "outer_diameter", "label": "Piston pin outer diameter", "unit": "mm", "standard": { "min": 20.971, "max": 20.983 } },
+        { "key": "interference_fit_to_piston", "label": "Interference fit of pin to piston", "unit": "mm", "standard": { "min": 0, "max": 0.004 } },
+        { "key": "to_rod_bushing_clearance", "label": "Pin to connecting-rod bushing clearance", "unit": "mm", "standard": { "min": 0.005, "max": 0.017 } }
+      ]
+    },
+    {
+      "key": "connecting_rod",
+      "title": "Connecting rod",
+      "component": "connecting_rod",
+      "measurements": [
+        { "key": "center_distance", "label": "Center distance", "unit": "mm", "standard": { "min": 154.1, "max": 154.2 } },
+        { "key": "bend_limit", "label": "Bend limit", "unit": "mm", "limit": { "max": 0.15 }, "notes": "Per 100 mm." },
+        { "key": "torsion_limit", "label": "Torsion limit", "unit": "mm", "limit": { "max": 0.30 }, "notes": "Per 100 mm." },
+        { "key": "bushing_inner_diameter", "label": "Piston-pin bushing inner diameter", "unit": "mm", "standard": { "min": 20.982, "max": 20.994 }, "notes": "After installing in connecting rod." },
+        { "key": "big_end_inner_diameter", "label": "Big-end inner diameter", "unit": "mm", "standard": { "min": 53.000, "max": 53.013 } },
+        { "key": "side_clearance", "label": "Side clearance", "unit": "mm", "standard": { "min": 0.20, "max": 0.35 }, "limit": { "max": 0.40 } }
+      ]
+    },
+    {
+      "key": "crankshaft",
+      "title": "Crankshaft",
+      "component": "crankshaft",
+      "measurements": [
+        { "key": "main_journal_diameter", "label": "Main journal diameter Dm", "unit": "mm", "grades": [ { "grade": "0", "min": 62.967, "max": 62.975 }, { "grade": "1", "min": 62.959, "max": 62.967 }, { "grade": "2", "min": 62.951, "max": 62.959 } ] },
+        { "key": "pin_journal_diameter", "label": "Pin journal diameter Dp", "unit": "mm", "standard": { "min": 49.955, "max": 49.974 } },
+        { "key": "center_distance_r", "label": "Center distance r", "unit": "mm", "nominal": 41.5 },
+        { "key": "out_of_round", "label": "Journal out-of-round (X - Y)", "unit": "mm", "standard": { "max": 0.005 }, "notes": "Less than 0.005 mm." },
+        { "key": "taper", "label": "Journal taper (A - B)", "unit": "mm", "standard": { "max": 0.005 }, "notes": "Less than 0.005 mm." },
+        { "key": "runout", "label": "Crankshaft runout (TIR)", "unit": "mm", "standard": { "max": 0.025 }, "limit": { "max": 0.10 } },
+        { "key": "free_end_play", "label": "Free end play", "unit": "mm", "standard": { "min": 0.050, "max": 0.170 }, "limit": { "max": 0.30 } }
+      ]
+    },
+    {
+      "key": "main_bearing",
+      "title": "Main bearing (selective fit)",
+      "component": "bearings",
+      "measurements": [
+        { "key": "no1_thickness", "label": "No.1 main bearing thickness T", "unit": "mm", "notes": "Width 22.4 - 22.6 mm.", "grades": [ { "grade": "0", "color": "Black", "min": 1.817, "max": 1.821 }, { "grade": "1", "color": "Brown", "min": 1.821, "max": 1.825 }, { "grade": "2", "color": "Green", "min": 1.825, "max": 1.829 }, { "grade": "3", "color": "Yellow", "min": 1.829, "max": 1.833 }, { "grade": "4", "color": "Blue", "min": 1.833, "max": 1.837 } ] },
+        { "key": "no23_thickness", "label": "No.2 and No.3 main bearing thickness T", "unit": "mm", "notes": "Width 18.9 - 19.1 mm.", "grades": [ { "grade": "0", "color": "Black", "min": 1.817, "max": 1.821 }, { "grade": "1", "color": "Brown", "min": 1.821, "max": 1.825 }, { "grade": "2", "color": "Green", "min": 1.825, "max": 1.829 }, { "grade": "3", "color": "Yellow", "min": 1.829, "max": 1.833 }, { "grade": "4", "color": "Blue", "min": 1.833, "max": 1.837 } ] },
+        { "key": "no4_thickness", "label": "No.4 main bearing thickness T", "unit": "mm", "grades": [ { "grade": "0", "color": "Black", "min": 1.817, "max": 1.821 }, { "grade": "1", "color": "Brown", "min": 1.821, "max": 1.825 }, { "grade": "2", "color": "Green", "min": 1.825, "max": 1.829 }, { "grade": "3", "color": "Yellow", "min": 1.829, "max": 1.833 }, { "grade": "4", "color": "Blue", "min": 1.833, "max": 1.837 } ] },
+        { "key": "undersize_0_25_thickness", "label": "Main bearing thickness (0.25 mm undersize)", "unit": "mm", "standard": { "min": 1.948, "max": 1.956 } }
+      ]
+    },
+    {
+      "key": "bearing_clearance",
+      "title": "Bearing clearance",
+      "component": "bearings",
+      "measurements": [
+        { "key": "main_bearing_clearance", "label": "Main bearing clearance", "unit": "mm", "standard": { "min": 0.028, "max": 0.055 }, "limit": { "max": 0.090 } },
+        { "key": "connecting_rod_bearing_clearance", "label": "Connecting rod bearing clearance", "unit": "mm", "standard": { "min": 0.014, "max": 0.054 }, "limit": { "max": 0.090 } }
+      ]
+    },
+    {
+      "key": "connecting_rod_bearing",
+      "title": "Connecting rod bearing (selective fit)",
+      "component": "bearings",
+      "measurements": [
+        { "key": "thickness", "label": "Connecting rod bearing thickness", "unit": "mm", "grades": [ { "grade": "STD", "min": 1.502, "max": 1.506 }, { "grade": "0.08 US", "min": 1.542, "max": 1.546 }, { "grade": "0.12 US", "min": 1.562, "max": 1.566 }, { "grade": "0.25 US", "min": 1.627, "max": 1.631 } ], "notes": "Grind crank pin so bearing clearance is the specified value." }
+      ]
+    },
+    {
+      "key": "miscellaneous",
+      "title": "Miscellaneous components",
+      "component": "assembly",
+      "measurements": [
+        { "key": "flywheel_runout", "label": "Flywheel / drive plate runout (TIR)", "unit": "mm", "limit": { "max": 0.15 }, "notes": "Less than 0.15 mm." }
+      ]
+    }
+  ]
+}
