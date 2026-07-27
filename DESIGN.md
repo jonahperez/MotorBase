@@ -222,6 +222,8 @@ The `USER#<sub>` reverse-lookup items are the only non-tenant-prefixed keys; the
 - `GET/POST /vendors`, `GET/PUT/DELETE /vendors/{id}`
 - `GET/POST /parts`, `GET/PUT/DELETE /parts/{id}` (catalog)
 - `GET/POST /task-templates`, `GET/PUT/DELETE /task-templates/{id}` (procedure library + specs)
+- `GET /spec-template`, `GET /spec-template/schema` (download standardized JSON template + schema)
+- `GET/POST /engine-specs`, `GET /engine-specs/{type}[/{revision}]` (upload/validate/store engine spec sets — see §11)
 - `GET/POST /builds`, `GET/PUT/DELETE /builds/{id}`
 - `GET /builds/{id}/tasks` (guided checklist, phase-ordered), `POST /builds/{id}/tasks` (instantiate template)
 - `GET/PUT /tasks/{id}` (status/result/notes), `POST /tasks/{id}/measurements` (record readings → auto in/out-of-spec)
@@ -277,7 +279,7 @@ scripts/               # seed data, local run helpers
 3. Domain module (procurement math, order lifecycle, measurement in/out-of-spec evaluation) + unit tests.
 4. Catalog CRUD (vendors, parts) and task-template CRUD (with measurement specs) + seed of standard templates.
 5. Builds + guided task checklist (instantiate templates, phase/seq ordering, status/result).
-6. Measurement capture with per-location readings and in/out-of-spec flagging.
+6. Engine spec templates: serve the standardized JSON template, validate uploads against the schema, store as `EngineSpec`; measurement capture with per-location readings validated against the build's `EngineSpec` (in-spec / out-of-standard / beyond-limit).
 7. Findings → BOM: turn beyond-limit measurements into part needs, resolving graded/selective-fit parts to the correct `Part.grade`; BOM management.
 8. Orders + order lines + receiving; order status transitions; procurement dashboard.
 9. Cognito Google federation + pre-token-generation trigger (mock locally, real on deploy).
@@ -293,7 +295,45 @@ scripts/               # seed data, local run helpers
 
 ---
 
-## 11. Open decisions (defaults in **bold**)
+## 11. Engine specification templates (download / upload)
+
+MotorBase provides a **standardized JSON specification template**. A user downloads a blank template, fills in every measurement value for an engine type (e.g. VG33E — valve stem diameter, valve face/seat, runout, clearances, graded parts), and uploads it. The upload is validated and stored as an engine-type **specification set**, then used to validate the guided measurement workflow.
+
+Concrete artifacts in this repo (derived from a factory-manual EM section):
+
+- `schema/engine-spec.schema.json` — the JSON Schema (draft 2020-12) that defines/validates the standardized template.
+- `schema/engine-spec.template.json` — the blank downloadable template (all measurement keys, empty values).
+- `schema/examples/vg33e.engine-spec.json` — a filled VG33E example (20 sections, ~101 measurements: cylinder head, camshaft, valve, valve guide/seat/spring, lifter, rocker, block, piston, rings, pin, rod, crank, bearings, compression, valve timing, misc).
+- `scripts/make_blank_template.py` — derives the blank template from a filled spec (the same way the download link is generated server-side).
+- `scripts/spec_eval.py` — reference evaluator that classifies a reading as `IN_SPEC` / `OUT_OF_STANDARD` / `BEYOND_LIMIT`, or resolves the matching grade for selective-fit parts.
+
+### Format
+
+Top level is `{ specVersion, engine, sections[] }`. Each `section` groups `measurements[]` by component; each measurement carries `key`, `label`, `unit`, optional `appliesTo` (intake/exhaust/outer/inner), `perLocation` + `locations` (per cylinder/journal/valve), a `standard` range, a `service`/wear `limit`, `nominal` (single-target specs like valve clearance 0), and `grades[]` for graded/selective-fit parts (piston grades, bearing grades with ID color, oversizes/undersizes). This directly models the SDS distinction between a standard/new range and a wear limit, plus per-location and per-grade values.
+
+### Storage (`EngineSpec` entity)
+
+The uploaded document is stored **whole** as a tenant-scoped item, versioned by revision:
+
+| Entity | PK | SK |
+|---|---|---|
+| Engine spec (revision) | `TENANT#<t>#ENGINESPEC#<engineType>` | `REV#<revision>` |
+| Engine spec (latest pointer) | `TENANT#<t>#ENGINESPEC#<engineType>` | `#LATEST` |
+
+Browse by manufacturer/family via GSI1 (`GSI1PK = TENANT#<t>#ENGINEMFR#<mfr>`). Documents are small (a few KB) and fit well within a DynamoDB item; if a spec ever exceeds limits it is offloaded to S3 with a pointer stored on the item.
+
+### Endpoints
+
+- `GET /spec-template` — download the blank standardized template (JSON).
+- `GET /spec-template/schema` — the JSON Schema.
+- `POST /engine-specs` — upload a filled template; validated against the schema, then stored as an `EngineSpec` (new revision + `#LATEST`).
+- `GET /engine-specs`, `GET /engine-specs/{type}`, `GET /engine-specs/{type}/{revision}`.
+
+### How it validates the workflow
+
+A build references an engine type + `EngineSpec` revision. When a `BuildTask` records a `MeasurementResult` for a `spec_key`, MotorBase resolves that key in the build's `EngineSpec` and classifies the reading (in-spec / out-of-standard / beyond-limit) — and for graded specs, returns the selected grade so the correct graded part flows into the BOM (see §7 selective fit). The `EngineSpec` is the authoritative source of numbers; task templates only reference `spec_key`s and describe procedure.
+
+## 12. Open decisions (defaults in **bold**)
 
 1. "Valve frame" interpretation: **valvetrain (valves, springs, retainers, guides, rockers/pushrods)** — or did you mean something more specific?
 2. Task templates: **tenant-owned copies seeded from a standard library (fully customizable, tenant-isolated)** — or a shared read-only `SYSTEM#` template catalog?
