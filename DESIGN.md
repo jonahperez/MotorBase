@@ -214,7 +214,8 @@ The `USER#<sub>` reverse-lookup items are the only non-tenant-prefixed keys; the
 - **Cognito User Pool** (Google federation, `custom:tenant_id`, pre-token-gen trigger) — see §3.
 - **API Gateway HTTP API** with a Cognito **JWT authorizer**.
 - **Lambda (Python 3.12)** using **AWS Lambda Powertools for Python** (routing via the API Gateway resolver, plus structured logging, tracing, metrics) and `boto3` for DynamoDB. **Pydantic** models for request/response validation.
-- Default packaging: **one Lambda + Powertools router** (simpler cold starts and local dev), with the option to split into per-domain functions later.
+- Packaging: **one Lambda function per domain** (builds/tasks, catalog, orders, engine-specs, and the Cognito auth trigger), each using Powertools. This gives clearer separation, independent scaling, and least-privilege IAM per domain (see §12).
+- Units: **metric is canonical/stored** (mm, cc); the API accepts imperial entry and supports an imperial display toggle, converting to metric on store (see §12).
 - **DynamoDB** single table with two GSIs (see §5).
 
 ### Proposed API surface
@@ -261,7 +262,7 @@ Local dev/test loop (no AWS account required to build and test the API):
 ```
 template.yaml          # SAM: API GW, Lambda, DynamoDB, Cognito (+Google IdP), triggers
 src/motorbase/
-  handlers/            # Powertools router + route handlers
+  handlers/            # one handler per domain (Powertools) + shared routing
   models/              # pydantic request/response models
   repo/                # DynamoDB single-table access + tenant-scoping assertions
   domain/              # procurement math, order lifecycle
@@ -290,7 +291,7 @@ scripts/               # seed data, local run helpers
 
 ## 10. What runs locally vs. needs cloud
 
-- **Local (no AWS account):** SAM app, DynamoDB single table + repo, Powertools router, procurement domain, seed data, `pytest` (incl. cross-tenant isolation), full API via `sam local` with a mock authorizer.
+- **Local (no AWS account):** SAM app, DynamoDB single table + repo, per-domain Powertools handlers, procurement domain, seed data, `pytest` (incl. cross-tenant isolation), full API via `sam local` with a mock authorizer.
 - **Cloud deploy (requires credentials):** an AWS account and a **Google OAuth client id/secret** (with Cognito callback URLs) to wire real Google sign-in through Cognito. Requested only at deploy time.
 
 ---
@@ -345,15 +346,20 @@ Browse by manufacturer/family via GSI1 (`GSI1PK = TENANT#<t>#ENGINEMFR#<mfr>`). 
 
 A build references an engine type + `EngineSpec` revision. When a `BuildTask` records a `MeasurementResult` for a `spec_key`, MotorBase resolves that key in the build's `EngineSpec` and classifies the reading (in-spec / out-of-standard / beyond-limit) — and for graded specs, returns the selected grade so the correct graded part flows into the BOM (see §7 selective fit). The `EngineSpec` is the authoritative source of numbers; task templates only reference `spec_key`s and describe procedure.
 
-## 12. Open decisions (defaults in **bold**)
+## 12. Decisions
 
-1. "Valve frame" interpretation: **valvetrain (valves, springs, retainers, guides, rockers/pushrods)** — or did you mean something more specific?
-2. Task templates: **tenant-owned copies seeded from a standard library (fully customizable, tenant-isolated)** — or a shared read-only `SYSTEM#` template catalog?
-3. Tenant assignment: **invitation-based membership** — or email-domain mapping (or both)?
-4. Multi-tenant users: **model supports it; MVP issues a claim for a single/default tenant** — or full tenant switching now?
-5. IaC: **AWS SAM** — or CDK (Python)?
-6. Lambda packaging: **single Lambda + Powertools router** — or one function per domain?
-7. Frontend: **API-first MVP (no UI yet)** — or include a minimal React SPA with Cognito Hosted UI?
-8. Units for measurements: **metric primary (mm/cc) with imperial display toggle** — the source manual lists both (e.g. `0.1 mm (0.004 in)`), so storing metric + rendering both fits well. OK, or imperial-first?
+### Resolved
+
+1. **Valvetrain** — "valve frame" means the valvetrain (valves, springs, retainers, guides, rockers/pushrods).
+2. **Tenant assignment: invitation-based membership** — an admin invites an email into a tenant; the pre-token-generation trigger resolves the pending membership on first Google login.
+3. **Multi-tenant users: single/default tenant for MVP** — the data model supports multiple memberships, but the token issues a claim for one default tenant now; full tenant switching is deferred.
+4. **IaC: AWS SAM.**
+5. **Lambda packaging: one function per domain** (builds/tasks, catalog, orders, engine-specs, auth trigger), each using AWS Lambda Powertools. Trades a little more infra for clearer separation, independent scaling, and least-privilege IAM per domain.
+6. **Units: metric is the canonical/stored unit** (mm, cc), since the engines worked on are specified in metric. Because many engine-builder tools report in imperial, the app accepts **imperial entry** and offers an **imperial display toggle**, converting to metric on store. The spec files already carry both (e.g. `0.1 mm (0.004 in)`).
+
+### Still open (defaults in **bold**)
+
+7. Task templates: **tenant-owned copies seeded from a standard library (fully customizable, tenant-isolated)** — or a shared read-only `SYSTEM#` template catalog?
+8. Frontend: **API-first MVP (no UI yet)** — or include a minimal React SPA with Cognito Hosted UI?
 9. Graded/selective-fit parts: **model grades on `Part` + per-grade spec sub-ranges now, with measurement-driven part selection** — or defer grading to a later phase?
 10. Spec seeding: **ship a few generic example task templates; let tenants enter/import their own manufacturer specs (no redistribution of copyrighted manuals)** — or build a per-engine template library later?
