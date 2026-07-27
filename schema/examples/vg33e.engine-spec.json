@@ -31,6 +31,28 @@
       ]
     },
     {
+      "key": "compression_ratio",
+      "title": "Compression ratio and volumes",
+      "component": "assembly",
+      "measurements": [
+        { "key": "bore", "label": "Bore (reference)", "unit": "mm", "nominal": 91.5, "notes": "Reference for volume calcs; see engine.boreMm. Use the measured cylinder bore for accuracy." },
+        { "key": "stroke", "label": "Stroke (reference)", "unit": "mm", "nominal": 83.0, "notes": "Reference for volume calcs; see engine.strokeMm." },
+        { "key": "combustion_chamber_volume", "label": "Combustion chamber volume", "unit": "cc", "perLocation": true, "locations": ["cyl1", "cyl2", "cyl3", "cyl4", "cyl5", "cyl6"], "notes": "Measured by cc'ing the inverted cylinder head (both valves and spark plug installed) with a burette." },
+        { "key": "piston_dome_dish_volume", "label": "Piston dome/dish volume", "unit": "cc", "perLocation": true, "locations": ["cyl1", "cyl2", "cyl3", "cyl4", "cyl5", "cyl6"], "notes": "Measured with a burette by sealing the piston at TDC under an acrylic plate. Positive = dish (adds volume); negative = dome (subtracts volume)." },
+        { "key": "ringland_crevice_volume", "label": "Top ring-land crevice volume", "unit": "cc", "nominal": 1.0, "notes": "Small volume around the top ring land above the top ring; approx. 1 cc per the reference article." },
+        { "key": "deck_clearance", "label": "Deck clearance (piston-to-deck)", "unit": "mm", "notes": "Distance from the piston flat to the deck at TDC. Positive = piston below deck. Builders commonly target 0.13-0.25 mm (.005-.010 in) down the bore." },
+        { "key": "head_gasket_bore", "label": "Head gasket bore", "unit": "mm", "notes": "Compressed head gasket bore diameter." },
+        { "key": "head_gasket_compressed_thickness", "label": "Head gasket compressed thickness", "unit": "mm", "notes": "Compressed (installed) head gasket thickness." },
+        { "key": "block_deck_height", "label": "Block deck height", "unit": "mm", "notes": "Crankshaft centerline to block deck. Verifies half-stroke + rod length + compression height + piston-to-deck; errors here shift the ratio significantly." },
+        { "key": "piston_compression_height", "label": "Piston compression height", "unit": "mm", "notes": "Pin centerline to the piston flat top (compression distance)." },
+        { "key": "swept_volume", "label": "Swept (displacement) volume per cylinder", "unit": "cc", "derived": true, "formula": "0.7854 * bore^2 * stroke / 1000", "nominal": 545.8, "notes": "mm -> cc (divide by 1000). Bottom-dead-center to top-dead-center displacement." },
+        { "key": "deck_volume", "label": "Deck clearance volume", "unit": "cc", "derived": true, "formula": "0.7854 * bore^2 * deck_clearance / 1000", "notes": "Cylinder volume between the piston flat and the deck at TDC." },
+        { "key": "head_gasket_volume", "label": "Head gasket volume", "unit": "cc", "derived": true, "formula": "0.7854 * head_gasket_bore^2 * head_gasket_compressed_thickness / 1000" },
+        { "key": "clearance_volume", "label": "Clearance volume (total above TDC)", "unit": "cc", "derived": true, "formula": "combustion_chamber_volume + piston_dome_dish_volume + ringland_crevice_volume + deck_volume + head_gasket_volume" },
+        { "key": "compression_ratio", "label": "Static (initial) compression ratio", "unit": "ratio", "derived": true, "formula": "(swept_volume + clearance_volume) / clearance_volume", "nominal": 8.9, "notes": "Initial/static compression ratio; VG33E published value is 8.9:1." }
+      ]
+    },
+    {
       "key": "valve_timing",
       "title": "Valve timing",
       "component": "valvetrain",

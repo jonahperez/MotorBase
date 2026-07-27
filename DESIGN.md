@@ -303,13 +303,25 @@ Concrete artifacts in this repo (derived from a factory-manual EM section):
 
 - `schema/engine-spec.schema.json` — the JSON Schema (draft 2020-12) that defines/validates the standardized template.
 - `schema/engine-spec.template.json` — the blank downloadable template (all measurement keys, empty values).
-- `schema/examples/vg33e.engine-spec.json` — a filled VG33E example (20 sections, ~101 measurements: cylinder head, camshaft, valve, valve guide/seat/spring, lifter, rocker, block, piston, rings, pin, rod, crank, bearings, compression, valve timing, misc).
+- `schema/examples/vg33e.engine-spec.json` — a filled VG33E example (21 sections, ~116 measurements: cylinder head, camshaft, valve, valve guide/seat/spring, lifter, rocker, block, piston, rings, pin, rod, crank, bearings, compression pressure, compression ratio + volumes, valve timing, misc).
 - `scripts/make_blank_template.py` — derives the blank template from a filled spec (the same way the download link is generated server-side).
 - `scripts/spec_eval.py` — reference evaluator that classifies a reading as `IN_SPEC` / `OUT_OF_STANDARD` / `BEYOND_LIMIT`, or resolves the matching grade for selective-fit parts.
+- `scripts/compression_ratio.py` — reference math for the `compression_ratio` section (swept/deck/gasket/clearance volumes and the static ratio), verified against the reference article.
 
 ### Format
 
-Top level is `{ specVersion, engine, sections[] }`. Each `section` groups `measurements[]` by component; each measurement carries `key`, `label`, `unit`, optional `appliesTo` (intake/exhaust/outer/inner), `perLocation` + `locations` (per cylinder/journal/valve), a `standard` range, a `service`/wear `limit`, `nominal` (single-target specs like valve clearance 0), and `grades[]` for graded/selective-fit parts (piston grades, bearing grades with ID color, oversizes/undersizes). This directly models the SDS distinction between a standard/new range and a wear limit, plus per-location and per-grade values.
+Top level is `{ specVersion, engine, sections[] }`. Each `section` groups `measurements[]` by component; each measurement carries `key`, `label`, `unit`, optional `appliesTo` (intake/exhaust/outer/inner), `perLocation` + `locations` (per cylinder/journal/valve), a `standard` range, a `service`/wear `limit`, `nominal` (single-target specs like valve clearance 0), and `grades[]` for graded/selective-fit parts (piston grades, bearing grades with ID color, oversizes/undersizes). Computed values use `derived: true` plus a `formula` string that references other measurement keys. This directly models the SDS distinction between a standard/new range and a wear limit, plus per-location, per-grade, and derived values.
+
+### Compression ratio and volumes
+
+The `compression_ratio` section captures the static (initial) compression ratio and every volume used to compute it, following the standard engine-builder method:
+
+- `compression_ratio = (swept_volume + clearance_volume) / clearance_volume`
+- `swept_volume = 0.7854 * bore^2 * stroke / 1000` (per cylinder, mm to cc)
+- `clearance_volume = combustion_chamber_volume + piston_dome_dish_volume + ringland_crevice_volume + deck_volume + head_gasket_volume`
+- `deck_volume = 0.7854 * bore^2 * deck_clearance / 1000`, `head_gasket_volume = 0.7854 * head_gasket_bore^2 * head_gasket_compressed_thickness / 1000`
+
+Measured inputs (chamber and piston dome/dish are cc'd with a burette; deck clearance, block deck height, gasket bore/thickness, compression height are measured) drive the derived volumes and ratio. `scripts/compression_ratio.py` implements this and is verified against the reference article (a 632 c.i. big-block at 15.92:1) and a VG33E build-up.
 
 ### Storage (`EngineSpec` entity)
 

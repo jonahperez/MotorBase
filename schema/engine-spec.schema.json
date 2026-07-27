@@ -106,6 +106,15 @@
           "description": "Reference condition for the value, e.g. spring pressure measured at this installed height."
         },
         "atUnit": { "type": ["string", "null"] },
+        "derived": {
+          "type": "boolean",
+          "default": false,
+          "description": "True when the value is computed from other measurements (e.g. a volume or the compression ratio) rather than measured directly."
+        },
+        "formula": {
+          "type": ["string", "null"],
+          "description": "Human-readable formula for a derived measurement, referencing other measurement keys, e.g. (swept_volume + clearance_volume) / clearance_volume."
+        },
         "notes": { "type": ["string", "null"] }
       }
     },
