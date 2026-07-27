@@ -105,13 +105,13 @@ erDiagram
     TENANT { string id string name }
     MEMBERSHIP { string tenant_id string user_sub string role }
     BUILD { string id string name enum status text notes }
-    PART { string id string name string part_number string category money list_price }
+    PART { string id string name string part_number string category string grade string size_class money list_price }
     VENDOR { string id string name string url string account_ref }
-    BOM_LINE { string build_id string part_id int qty_needed string source }
+    BOM_LINE { string build_id string part_id int qty_needed string source string source_task_id }
     ORDER { string id string build_id string vendor_id enum status date ordered_at string tracking date eta money total }
     ORDER_LINE { string order_id string part_id int qty_ordered int qty_received money unit_price }
-    TASK_TEMPLATE { string id string name string category enum phase json steps json tools }
-    MEASUREMENT_SPEC { string template_id string label float nominal float min float max string unit bool per_location }
+    TASK_TEMPLATE { string id string name string category enum phase json steps json tools json cautions }
+    MEASUREMENT_SPEC { string template_id string label float std_min float std_max float service_limit string unit bool per_location json grades }
     BUILD_TASK { string id string build_id string template_id enum phase int seq enum status enum result string component_ref text notes }
     MEASUREMENT_RESULT { string build_task_id string spec_label string location float measured string unit enum result }
 ```
@@ -120,8 +120,8 @@ erDiagram
 
 - **Task templates** are reusable procedures grouped by `category` (cylinders, pistons, cylinder head, valvetrain, crankshaft/bearings, connecting rods, rings, assembly) and a build `phase` (`TEARDOWN → CLEAN → INSPECT → MACHINE → ASSEMBLE → FINAL`). A template carries ordered `steps`, required `tools`, and a set of `MeasurementSpec`s.
 - A **build task** is a template instantiated onto a specific build, ordered within its phase by `seq`, with `status` (`NOT_STARTED / IN_PROGRESS / PASS / FAIL / SKIPPED`) and an overall `result`.
-- **Measurement results** capture the actual reading for each spec; `per_location` specs repeat per cylinder/journal/valve (e.g. bore diameter measured on cylinders 1–8). Each result is auto-flagged in/out of spec against the template's `min`/`max`.
-- **Findings feed procurement**: when a task fails or a measurement is out of spec, MotorBase can create a `BomLine` with `source = "inspection"` referencing the task, so the required replacement part flows straight into the BOM and ordering workflow.
+- **Measurement results** capture the actual reading for each spec; `per_location` specs repeat per cylinder/journal/valve (e.g. bore diameter measured on cylinders 1–8). Each result is auto-flagged against both the standard range (`std_min`/`std_max`) and the `service_limit` (in-spec / out-of-spec-but-serviceable / beyond-limit).
+- **Findings feed procurement**: when a task fails or a measurement is beyond limit, MotorBase can create a `BomLine` with `source = "inspection"` and `source_task_id` referencing the task, so the required replacement part flows straight into the BOM and ordering workflow.
 
 Example templates and the measurements they capture:
 
@@ -132,6 +132,23 @@ Example templates and the measurements they capture:
 | Examine cylinder head | cylinder head / INSPECT | deck flatness/warpage, valve-seat concentricity, valve-guide clearance, chamber cc, crack check (pass/fail) |
 | Evaluate valvetrain | valvetrain / INSPECT + ASSEMBLE | valve spring installed height, seat/open pressure, valve lash, retainer-to-seal clearance, coil-bind clearance, pushrod length (per valve) |
 | Crankshaft / bearings | crankshaft / ASSEMBLE | main & rod bearing clearance (plastigage), crank endplay, journal diameter (per journal) |
+
+### Modeled on factory service manuals + selective fit
+
+This model is validated against a real factory service manual (a Nissan "Engine Mechanical" section), whose structure maps directly onto MotorBase:
+
+- Manual procedure (Removal / Disassembly / **Inspection** / Assembly / Installation) → **task templates** by `category` + `phase`.
+- Manual **precautions** (e.g. angular/torque-to-yield tightening on head/main/rod/pulley bolts; liquid-gasket application) → template `cautions` and step notes.
+- Manual **Special Service Tools** → template `tools`.
+- Manual **Service Data & Specifications (SDS)** → `MeasurementSpec`s, which distinguish a *standard range* from a *wear/service limit* (hence `std_min`/`std_max` + `service_limit`), and are frequently **per-location** (per cylinder/journal) and **per-grade**.
+
+**Selective fit / grades.** The SDS shows many parts come in graded sizes — e.g. pistons in grades 1–3 plus service oversizes, and main bearings in grades 0–4 (each with a thickness range and identification color). The correct part is *selected from a measurement* to hit a target clearance (e.g. choose a bearing grade so main-bearing clearance lands in range). MotorBase captures this by:
+
+- `Part.grade` / `Part.size_class` (e.g. STD / 0.25 mm oversize; bearing grade + color) so a catalog part represents a specific graded variant.
+- `MeasurementSpec.grades` holding the per-grade sub-ranges when a spec is graded.
+- A **selection step**: an out-of-spec/graded measurement resolves to a specific graded `Part`, which becomes the `BomLine` (with `source = "inspection"`) and then the order. This is the concrete bridge between the inspection pillar and the ordering pillar.
+
+To respect the source manual's copyright, MotorBase stores only user-entered or user-imported spec values (and ships a small set of generic example templates); it does not redistribute a manufacturer's manual.
 
 ### Procurement math (per BOM part)
 
@@ -261,7 +278,7 @@ scripts/               # seed data, local run helpers
 4. Catalog CRUD (vendors, parts) and task-template CRUD (with measurement specs) + seed of standard templates.
 5. Builds + guided task checklist (instantiate templates, phase/seq ordering, status/result).
 6. Measurement capture with per-location readings and in/out-of-spec flagging.
-7. Findings → BOM: turn failed/out-of-spec tasks into part needs; BOM management.
+7. Findings → BOM: turn beyond-limit measurements into part needs, resolving graded/selective-fit parts to the correct `Part.grade`; BOM management.
 8. Orders + order lines + receiving; order status transitions; procurement dashboard.
 9. Cognito Google federation + pre-token-generation trigger (mock locally, real on deploy).
 10. Cross-tenant isolation tests; `sam local` end-to-end smoke (walk a build task → out-of-spec → need → order → receive).
@@ -285,4 +302,6 @@ scripts/               # seed data, local run helpers
 5. IaC: **AWS SAM** — or CDK (Python)?
 6. Lambda packaging: **single Lambda + Powertools router** — or one function per domain?
 7. Frontend: **API-first MVP (no UI yet)** — or include a minimal React SPA with Cognito Hosted UI?
-8. Units for measurements: **metric primary (mm/cc), imperial display toggle** — or imperial-first?
+8. Units for measurements: **metric primary (mm/cc) with imperial display toggle** — the source manual lists both (e.g. `0.1 mm (0.004 in)`), so storing metric + rendering both fits well. OK, or imperial-first?
+9. Graded/selective-fit parts: **model grades on `Part` + per-grade spec sub-ranges now, with measurement-driven part selection** — or defer grading to a later phase?
+10. Spec seeding: **ship a few generic example task templates; let tenants enter/import their own manufacturer specs (no redistribution of copyrighted manuals)** — or build a per-engine template library later?
