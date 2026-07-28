@@ -38,6 +38,7 @@ const TASKS = [
   { id: 't3', phase: 'INSPECT', name: 'Examine cylinders', status: 'done' },
   { id: 't4', phase: 'INSPECT', name: 'Examine pistons', status: 'todo' },
   { id: 't6', phase: 'INSPECT', name: 'Evaluate valvetrain', status: 'issue' },
+  { id: 'tcam', phase: 'INSPECT', name: 'Camshaft inspection', status: 'todo' },
   { id: 'tc', phase: 'INSPECT', name: 'Crankshaft inspection', status: 'todo' },
   { id: 'tr', phase: 'INSPECT', name: 'Connecting rods & bearings', status: 'todo' },
   { id: 'top', phase: 'INSPECT', name: 'Oil pump', status: 'todo' },
@@ -45,6 +46,7 @@ const TASKS = [
   { id: 'tt', phase: 'INSPECT', name: 'Timing chain / belt', status: 'todo' },
   { id: 't8', phase: 'MACHINE', name: 'Bore & hone to piston size', status: 'todo' },
   { id: 't9', phase: 'MACHINE', name: 'Valve job & resurface heads', status: 'todo' },
+  { id: 'tbal', phase: 'MACHINE', name: 'Balance rotating assembly', status: 'todo' },
   { id: 't10', phase: 'ASSEMBLE', name: 'Set bearing clearances & torque', sub: 'Angular torque per precautions', status: 'todo' },
   { id: 't11', phase: 'ASSEMBLE', name: 'Degree cams & set valvetrain', status: 'todo' },
   { id: 'tlub', phase: 'SYSTEMS', name: 'Lubrication system', status: 'todo' },
@@ -93,6 +95,7 @@ function instancesFor(scope, m) {
     case 'piston': return range(L.cylinders, n => ({ key: String(n), label: 'Cyl ' + n }));
     case 'main_journal': return range(L.mainJournals, n => ({ key: 'M' + n, label: 'Main ' + n }));
     case 'rod': return range(L.cylinders, n => ({ key: 'R' + n, label: 'Rod ' + n }));
+    case 'camshaft': return L.heads.map(h => ({ key: h[0] + 'cam', label: h + ' cam' }));
     case 'valve': {
       const groups = m.appliesTo === 'intake' ? ['IN'] : m.appliesTo === 'exhaust' ? ['EX'] : ['IN', 'EX'];
       const out = [];
@@ -129,7 +132,7 @@ const STATUS_BADGE = {
 };
 
 let SPEC = null;
-const state = { route: 'dashboard', buildId: null, tab: 'workflow', taskId: 't5', step: 0 };
+const state = { route: 'dashboard', buildId: null, tab: 'workflow', taskId: 't5', step: 0, renaming: false };
 
 /* ---------- spec helpers (real algorithms) ---------- */
 function findMeasurement(sectionKey, measKey) {
@@ -261,7 +264,9 @@ function renderBuild() {
   const tabs = [['workflow', 'Guided workflow'], ['bom', 'Bill of materials'], ['orders', 'Orders'], ['cr', 'Compression ratio']];
   content().innerHTML = `
     <div class="page-head">
-      <div><h2>${b.name}</h2><p>${b.engineName} · engine type <b>${b.engine}</b> · spec revision <b>${b.specRev}</b></p>
+      <div><h2 class="build-title">${state.renaming
+        ? `<input id="rename-input" class="rename-input" value="${b.name.replace(/"/g, '&quot;')}"/><button class="btn sm primary" data-rename-save>Save</button><button class="btn sm" data-rename-cancel>Cancel</button>`
+        : `${b.name} <button class="icon-btn" data-rename title="Rename build">✎</button>`}</h2><p>${b.engineName} · engine type <b>${b.engine}</b> · spec revision <b>${b.specRev}</b></p>
       ${b.layout ? `<p class="layout-line">${b.layout.config} · ${b.layout.heads.length} cylinder head${b.layout.heads.length > 1 ? 's' : ''} · ${b.layout.cylinders} cylinders · ${b.layout.cylinders * (b.layout.valves.intake + b.layout.valves.exhaust)} valves (${b.layout.valves.intake} intake + ${b.layout.valves.exhaust} exhaust per cylinder) · ${b.layout.mainJournals} mains</p>` : ''}
       </div>
       <div class="spacer"></div>${badge(...STATUS_BADGE[b.status])}
@@ -351,7 +356,11 @@ function renderWalkthrough(panel, t) {
     return `<button class="wstep ${cur ? 'cur' : ''} ${done ? 'done' : ''}" data-gostep="${i}"><span class="wnum">${done && !cur ? '✓' : i + 1}</span><span class="wt">${s.title}</span></button>`;
   }).join('<span class="wsep"></span>');
 
-  const blocks = step.m.length ? step.m.map((entry, idx) => measBlock(t, entry, idx)).join('') : '<p class="panel-sub">Visual / note-only step — record findings below.</p>';
+  const partLabel = step.part || proc.part || t.name;
+  const blocks = step.calc === 'bore' ? boreCalc(t)
+    : step.calc === 'balance' ? balanceCalc(t)
+    : step.m.length ? step.m.map((entry, idx) => measBlock(t, entry, idx)).join('')
+    : '<p class="panel-sub">Visual / note-only step — record findings below.</p>';
 
   const beyond = [];
   step.m.forEach(entry => {
@@ -373,6 +382,7 @@ function renderWalkthrough(panel, t) {
         <div class="wk-instr"><span class="chip">🛠 ${step.tool}</span><p>${step.instruction}</p>${step.caution ? `<div class="mini-caution">⚠ ${step.caution}</div>` : ''}</div>
         <div class="wk-meas">${blocks}</div>
         ${beyond.length ? `<div class="callout"><span>⚠</span><div><b>${beyond.length} reading${beyond.length > 1 ? 's are' : ' is'} beyond the service limit</b> (${beyond.map(b => b.inst.label || b.r.m.label).join(', ')}). Flag the replacement part.</div><button class="btn primary sm" data-addneed="1">${ICONS.plus} Add to parts needed</button></div>` : ''}
+        <div class="reject-row"><button class="btn sm reject-btn" data-reject="1">✕ Mark “${partLabel}” unacceptable — add to parts</button></div>
         <label class="wk-notes-l">Notes for this step</label>
         <textarea class="wk-notes" data-note="${noteKey}" placeholder="Observations, tooling, sublet machine work, decisions…">${NOTES[noteKey] || ''}</textarea>
       </div>
@@ -400,6 +410,108 @@ function renderWalkthrough(panel, t) {
     toast('Added “' + label + '” to parts needed');
     state.tab = 'bom'; renderBuild();
   });
+  const rej = panel.querySelector('[data-reject]');
+  if (rej) rej.addEventListener('click', () => {
+    BOM.push({ part: partLabel + ' — replace / machine', pn: '—', need: 1, ordered: 0, received: 0, src: 'inspection' });
+    toast('Flagged “' + partLabel + '” as unacceptable — added to parts');
+    state.tab = 'bom'; renderBuild();
+  });
+  if (step.calc === 'bore') bindBoreCalc(panel, t);
+  if (step.calc === 'balance') bindBalanceCalc(panel, t);
+}
+
+/* ---- Cylinder bore grade calculator (6 readings per cylinder) ---- */
+const BORE_POS = ['TX', 'TY', 'MX', 'MY', 'BX', 'BY'];
+function computeBore(t, n) {
+  const g = p => { const v = getV(t.id, `cylinder_block.bore.C${n}.${p}`); return v === '' || v == null || isNaN(v) ? null : Number(v); };
+  const v = {}; BORE_POS.forEach(p => v[p] = g(p));
+  const levelMean = L => { const a = v[L + 'X'], b = v[L + 'Y']; if (a != null && b != null) return (a + b) / 2; return a != null ? a : b; };
+  const T = levelMean('T'), M = levelMean('M'), B = levelMean('B');
+  const means = [['T', T], ['M', M], ['B', B]].filter(x => x[1] != null);
+  const reads = BORE_POS.map(p => v[p]).filter(x => x != null);
+  if (!reads.length) return { empty: true };
+  const oorAt = L => (v[L + 'X'] != null && v[L + 'Y'] != null) ? Math.abs(v[L + 'X'] - v[L + 'Y']) : null;
+  const oorVals = ['T', 'M', 'B'].map(oorAt).filter(x => x != null);
+  const oor = oorVals.length ? Math.max(...oorVals) : null;
+  const maxDia = Math.max(...reads);
+  let taper = null, shape = '—';
+  if (means.length >= 2) {
+    const vals = means.map(m => m[1]); taper = Math.max(...vals) - Math.min(...vals);
+    if (taper < 0.005) shape = 'Straight';
+    else { const top = means.reduce((a, b) => b[1] > a[1] ? b : a); shape = top[0] === 'M' ? 'Barrel' : top[0] === 'T' ? 'Tapered to top' : 'Tapered to bottom'; }
+  }
+  const spec = findMeasurement('cylinder_block', 'bore_inner_diameter');
+  let grade = null;
+  (spec.grades || []).forEach(gr => { if (maxDia >= (gr.min ?? -1e9) && maxDia <= (gr.max ?? 1e9)) grade = gr.grade; });
+  const oorLim = 0.015, taperLim = 0.015;
+  const dev = Math.max(oor || 0, taper || 0);
+  let cls = 'ok', txt = grade ? 'Grade ' + grade : 'Size?';
+  if (!grade) { cls = 'warn'; txt = 'Oversize / regrind'; }
+  if ((oor != null && oor > oorLim) || (taper != null && taper > taperLim)) { cls = 'bad'; txt = 'Beyond limit — bore'; }
+  return { maxDia, grade, oor, taper, shape, dev, cls, txt };
+}
+function boreCyl(t, n) {
+  const inp = p => `<input type="number" step="0.001" value="${getV(t.id, `cylinder_block.bore.C${n}.${p}`)}" data-bore="${n}|${p}">`;
+  const row = L => `<div class="bore-row"><span>${L}</span>${inp(L + 'X')}${inp(L + 'Y')}</div>`;
+  return `<div class="bore-cyl">
+    <div class="bore-cyl-head">Cylinder ${n}<span data-bore-status="${n}"></span></div>
+    <div class="bore-grid"><div class="bore-row bore-hdr"><span></span><em>X</em><em>Y</em></div>${row('T')}${row('M')}${row('B')}</div>
+    <div class="bore-out" data-bore-out="${n}"></div>
+  </div>`;
+}
+function boreOutHtml(r) {
+  if (r.empty) return '<span class="bore-hint">Enter readings…</span>';
+  const f = x => x == null ? '—' : x.toFixed(3);
+  return `<span class="bchip">grade <b>${r.grade || 'OS'}</b></span><span class="bchip">OOR <b>${f(r.oor)}</b></span><span class="bchip">taper <b>${f(r.taper)}</b></span><span class="bchip">max dev <b>${f(r.dev)}</b></span><span class="bchip shape">${r.shape}</span>`;
+}
+function boreCalc(t) {
+  const cards = Array.from({ length: getLayout().cylinders }, (_, i) => boreCyl(t, i + 1)).join('');
+  return `<div class="panel-sub" style="margin-bottom:10px">6 readings per cylinder (Top / Middle / Bottom × X / Y). Grade, out-of-round, taper, wear shape and max deviation are computed live.</div><div class="bore-cyls">${cards}</div>`;
+}
+function refreshBoreCyl(panel, t, n) {
+  const r = computeBore(t, n);
+  const out = panel.querySelector(`[data-bore-out="${n}"]`); if (out) out.innerHTML = boreOutHtml(r);
+  const st = panel.querySelector(`[data-bore-status="${n}"]`); if (st) st.innerHTML = r.empty ? '' : badge(r.cls, r.txt);
+}
+function bindBoreCalc(panel, t) {
+  for (let n = 1; n <= getLayout().cylinders; n++) refreshBoreCyl(panel, t, n);
+  panel.querySelectorAll('input[data-bore]').forEach(inp => inp.addEventListener('input', () => {
+    const [n, p] = inp.dataset.bore.split('|');
+    setV(t.id, `cylinder_block.bore.C${n}.${p}`, inp.value);
+    refreshBoreCyl(panel, t, +n);
+  }));
+}
+
+/* ---- Rotating-assembly bob-weight calculator ---- */
+const BAL_FIELDS = [
+  { k: 'piston', l: 'Piston', grp: 'recip' }, { k: 'pin', l: 'Pin', grp: 'recip' }, { k: 'rings', l: 'Ring set', grp: 'recip' },
+  { k: 'locks', l: 'Locks / clips', grp: 'recip' }, { k: 'rod_small', l: 'Rod small-end', grp: 'recip' },
+  { k: 'rod_big', l: 'Rod big-end', grp: 'rot' }, { k: 'bearing', l: 'Rod bearing (×2)', grp: 'rot' }, { k: 'oil', l: 'Oil allowance', grp: 'rot' },
+];
+function computeBalance(t) {
+  const g = k => { const v = getV(t.id, 'balance.' + k); return v === '' || v == null || isNaN(v) ? 0 : Number(v); };
+  const recip = g('piston') + g('pin') + g('rings') + g('locks') + g('rod_small');
+  const rotating = g('rod_big') + 2 * g('bearing') + g('oil');
+  return { recip, rotating, bob: rotating + 0.5 * recip };
+}
+function balanceCalc(t) {
+  if (getV(t.id, 'balance.oil') === '') setV(t.id, 'balance.oil', 0.5);
+  const input = f => `<div class="bal-field"><label>${f.l}</label><div class="in"><input type="number" step="0.1" value="${getV(t.id, 'balance.' + f.k)}" data-bal="${f.k}"><span class="unit">g</span></div></div>`;
+  const grp = (title, g) => `<div class="bal-grp"><h5>${title}</h5>${BAL_FIELDS.filter(f => f.grp === g).map(input).join('')}</div>`;
+  return `<div class="bal-calc">
+    <div class="bal-inputs">${grp('Reciprocating', 'recip')}${grp('Rotating', 'rot')}</div>
+    <div class="bal-out" data-bal-out></div>
+    <div class="bal-note">Bob weight = 100% rotating + 50% reciprocating (typical V-engine). Bearings count double per journal; ~0.5 g added for oil. A ¼-oz imbalance at 4″ makes ~63 lb of force at 6,000 rpm.</div>
+  </div>`;
+}
+function refreshBalance(panel, t) {
+  const r = computeBalance(t);
+  const out = panel.querySelector('[data-bal-out]');
+  if (out) out.innerHTML = `<span class="bchip">reciprocating <b>${r.recip.toFixed(1)} g</b></span><span class="bchip">rotating <b>${r.rotating.toFixed(1)} g</b></span><span class="bchip big">bob weight <b>${r.bob.toFixed(1)} g</b></span>`;
+}
+function bindBalanceCalc(panel, t) {
+  refreshBalance(panel, t);
+  panel.querySelectorAll('input[data-bal]').forEach(inp => inp.addEventListener('input', () => { setV(t.id, 'balance.' + inp.dataset.bal, inp.value); refreshBalance(panel, t); }));
 }
 
 // Resolve a stored field string back to its measurement object (for live re-eval).
@@ -554,6 +666,17 @@ document.addEventListener('click', e => {
   }
   const gs = e.target.closest('[data-gostep]');
   if (gs) { state.step = +gs.dataset.gostep; renderWorkflow($('#tab-body')); return; }
+  if (e.target.closest('[data-rename]')) { state.renaming = true; renderBuild(); const i = $('#rename-input'); if (i) { i.focus(); i.select(); } return; }
+  if (e.target.closest('[data-rename-cancel]')) { state.renaming = false; renderBuild(); return; }
+  if (e.target.closest('[data-rename-save]')) {
+    const i = $('#rename-input'); const b = BUILDS.find(x => x.id === state.buildId);
+    if (i && b && i.value.trim()) { b.name = i.value.trim(); toast('Build renamed'); }
+    state.renaming = false; renderBuild(); return;
+  }
+});
+document.addEventListener('keydown', e => {
+  if (e.key === 'Enter' && e.target.id === 'rename-input') { e.preventDefault(); $('[data-rename-save]')?.click(); }
+  if (e.key === 'Escape' && e.target.id === 'rename-input') { state.renaming = false; renderBuild(); }
 });
 
 $('#google-signin').addEventListener('click', () => {

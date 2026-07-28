@@ -212,6 +212,25 @@ const DIAGRAMS = {
     ${MK(1, 346, 104)}
     <text x="230" y="284" class="dgm-cap" text-anchor="middle">Pressurize to 157 kPa and watch the gauge for a drop / leaks.</text>
   </svg>`,
+
+  cam_lobe: `<svg viewBox="0 0 460 300">
+    <circle cx="170" cy="168" r="72" class="dgm-face"/>
+    <path d="M126 116 Q170 20 214 116 A72 72 0 0 1 126 116 Z" class="dgm-part"/>
+    <line x1="170" y1="96" x2="170" y2="40" class="dgm-acc"/>${AH(170, 40, 'up')}<text x="178" y="60" class="dgm-lbl">lobe height</text>${MK(1, 170, 78)}
+    <line x1="98" y1="168" x2="242" y2="168" class="dgm-dash"/><text x="120" y="188" class="dgm-cap">base circle</text>
+    <circle cx="360" cy="168" r="34" class="dgm-part"/><circle cx="360" cy="168" r="34" class="dgm-line" fill="none"/><text x="336" y="120" class="dgm-cap">journal</text>${MK(2, 360, 168)}
+    <text x="230" y="286" class="dgm-cap" text-anchor="middle">Measure lobe height ① (per lobe) and journal diameter / clearance ②.</text>
+  </svg>`,
+
+  balance: `<svg viewBox="0 0 460 300">
+    <line x1="46" y1="150" x2="414" y2="150" class="dgm-line-2"/>
+    <circle cx="110" cy="150" r="24" class="dgm-part"/><circle cx="350" cy="150" r="24" class="dgm-part"/>
+    <path d="M180 150 a52 60 0 0 0 104 0 Z" class="dgm-part"/>
+    <circle cx="232" cy="150" r="22" class="dgm-part"/>
+    <rect x="206" y="86" width="52" height="42" rx="4" class="dgm-acc-fill"/><text x="196" y="80" class="dgm-lbl">bob weight</text>${MK(1, 232, 107)}
+    <circle cx="232" cy="196" r="7" class="dgm-line"/><text x="246" y="212" class="dgm-cap">drill / heavy metal</text>${MK(2, 232, 196)}
+    <text x="230" y="284" class="dgm-cap" text-anchor="middle">Bolt bob weights to the rod journals, spin, then add/remove counterweight metal.</text>
+  </svg>`,
 };
 
 /* Inline measurement helper (for components not in the engine spec JSON). */
@@ -248,19 +267,16 @@ const PROCEDURES = {
       instruction: 'Check free height and out-of-square, then measure installed pressure at the specified height. Per valve spring.',
       m: [['valve_spring', 'free_height_outer', 'valve'], ['valve_spring', 'pressure_outer', 'valve']] },
   ] },
-  t3: { title: 'Examine cylinders', steps: [
-    { title: 'Measure bore diameter', tool: 'Bore gauge', diagram: 'bore',
-      instruction: 'Measure each cylinder (1–6) at A/B/C depths in the X and Y axes; record the grade per cylinder.',
-      m: [['cylinder_block', 'bore_inner_diameter', 'cylinder']] },
-    { title: 'Check out-of-round', tool: 'Bore gauge', diagram: 'bore',
-      instruction: 'Out-of-round = X − Y at the same depth, per cylinder.',
-      m: [['cylinder_block', 'out_of_round', 'cylinder']] },
-    { title: 'Check taper', tool: 'Bore gauge', diagram: 'bore',
-      instruction: 'Taper = top (A) − bottom (B/C), per cylinder.',
-      m: [['cylinder_block', 'taper', 'cylinder']] },
-    { title: 'Check deck flatness', tool: 'Straightedge + feeler gauge', diagram: 'head_flatness',
+  t3: { title: 'Examine cylinders', part: 'Cylinder block (bore / hone)', steps: [
+    { title: 'Bore measurement & grade', tool: 'Bore gauge', diagram: 'bore', calc: 'bore', part: 'Cylinder block (bore / hone)',
+      instruction: 'Measure each cylinder at Top / Middle / Bottom in the X and Y axes (6 readings). The calculator derives the size grade, out-of-round, taper, wear shape, and max deviation per cylinder.',
+      m: [] },
+    { title: 'Check deck flatness', tool: 'Straightedge + feeler gauge', diagram: 'head_flatness', part: 'Cylinder block (deck resurface)',
       instruction: 'Check block-deck flatness on each bank the same way as the head deck.',
       m: [['cylinder_block', 'surface_flatness', 'head']] },
+    { title: 'Cylinder wall condition', tool: 'Visual', diagram: 'bore', part: 'Cylinder block',
+      instruction: 'Inspect the bores for scoring, glaze, or damage that would require boring oversize.',
+      m: [IM({ key: 'wall_condition', label: 'Bore wall condition (no scoring/damage)', type: 'check', scope: 'cylinder' })] },
   ] },
   t4: { title: 'Examine pistons', steps: [
     { title: 'Measure piston skirt diameter', tool: 'Micrometer', diagram: 'piston',
@@ -380,5 +396,24 @@ const PROCEDURES = {
         IM({ key: 'd_fan', label: 'Cooling fan operation / fan clutch', type: 'check' }),
         IM({ key: 'd_headgasket', label: 'No exhaust gas leak into coolant (head/gasket)', type: 'check' }),
       ] },
+  ] },
+  tcam: { title: 'Camshaft inspection', part: 'Camshaft', steps: [
+    { title: 'Cam lobe height', tool: 'Micrometer', diagram: 'cam_lobe', part: 'Camshaft',
+      instruction: 'Measure the height of each intake and exhaust lobe (SOHC VG33E has one camshaft per head — 6 intake + 6 exhaust lobes). Compare to standard; a worn lobe reduces lift and duration.',
+      m: [['camshaft', 'cam_height_intake', 'valve'], ['camshaft', 'cam_height_exhaust', 'valve']] },
+    { title: 'Journal diameter, clearance & end play', tool: 'Micrometer / dial gauge', diagram: 'cam_lobe', part: 'Camshaft',
+      instruction: 'Measure the cam journal diameter (graded by position), the journal-to-bearing clearance, and camshaft end play (per camshaft).',
+      m: [['camshaft', 'journal_outer_diameter', 'single'], ['camshaft', 'journal_clearance', 'single'], ['camshaft', 'end_play', 'camshaft']] },
+    { title: 'Camshaft runout', tool: 'V-blocks + dial gauge', diagram: 'cam_lobe', part: 'Camshaft',
+      instruction: 'Support the end journals on V-blocks and read runout at the center journal, per camshaft.',
+      m: [['camshaft', 'runout', 'camshaft']] },
+  ] },
+  tbal: { title: 'Balance rotating assembly', part: 'Rotating assembly (balance)', steps: [
+    { title: 'Weigh & match components', tool: 'Gram scale + belt sander', diagram: 'balance', calc: 'balance', part: 'Rotating assembly (balance)',
+      instruction: 'Weigh each piston and rod and match the set to the lightest by removing material (rod big-end side / small-end tip). Enter representative weights; the calculator derives reciprocating, rotating, and bob weight (100% rotating + 50% reciprocating). Bearings count double per journal, plus ~0.5 g of oil.',
+      m: [] },
+    { title: 'Spin-balance & correct', tool: 'Crank balancer', diagram: 'balance', part: 'Crankshaft (balance)',
+      instruction: 'Bolt the bob weights to the rod journals and spin the crank. Record the residual imbalance at each end; correct by drilling counterweights or pressing in heavy metal.',
+      m: [IM({ key: 'imbalance_front', label: 'Residual imbalance — front', unit: 'g·cm', limit: { max: 4 } }), IM({ key: 'imbalance_rear', label: 'Residual imbalance — rear', unit: 'g·cm', limit: { max: 4 } })] },
   ] },
 };

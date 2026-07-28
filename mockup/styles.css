@@ -243,6 +243,47 @@ tr:last-child td { border-bottom: none; }
 .inst-badge { flex: none; }
 .badge.mini { padding: 2px 6px; font-size: 10.5px; min-width: 30px; justify-content: center; }
 
+/* Rename build */
+.build-title { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.icon-btn { border: 1px solid var(--border); background: var(--surface); border-radius: 8px; padding: 3px 8px; font-size: 13px; color: var(--muted); }
+.icon-btn:hover { color: var(--primary-600); border-color: var(--primary); }
+.rename-input { font-size: 20px; font-weight: 700; padding: 4px 10px; border: 1px solid var(--primary); border-radius: 8px; box-shadow: 0 0 0 3px var(--primary-soft); }
+
+/* Reject / mark unacceptable */
+.reject-row { margin-top: 14px; }
+.reject-btn { color: var(--bad); border-color: var(--bad-soft); }
+.reject-btn:hover { background: var(--bad-soft); }
+
+/* Bore grade calculator */
+.bore-cyls { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 12px; }
+.bore-cyl { border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; background: var(--surface-2); }
+.bore-cyl-head { display: flex; align-items: center; justify-content: space-between; font-weight: 700; font-size: 13px; margin-bottom: 8px; }
+.bore-grid { display: flex; flex-direction: column; gap: 5px; }
+.bore-row { display: grid; grid-template-columns: 22px 1fr 1fr; gap: 6px; align-items: center; }
+.bore-row > span { font-size: 11px; font-weight: 700; color: var(--muted); }
+.bore-row em { font-size: 11px; color: var(--muted); text-align: center; font-style: normal; }
+.bore-row input { border: 1px solid var(--border); border-radius: 6px; padding: 5px 6px; font-size: 12px; text-align: right; background: #fff; width: 100%; min-width: 0; }
+.bore-row input:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 2px var(--primary-soft); }
+.bore-out { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 9px; }
+.bore-hint { color: var(--muted); font-size: 12px; }
+.bchip { font-size: 11px; background: #fff; border: 1px solid var(--border); border-radius: 7px; padding: 2px 7px; color: var(--muted); }
+.bchip b { color: var(--text); font-variant-numeric: tabular-nums; }
+.bchip.shape { background: var(--info-soft); border-color: transparent; color: #1d4ed8; font-weight: 700; }
+
+/* Balance calculator */
+.bal-inputs { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.bal-grp h5 { margin: 0 0 8px; font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
+.bal-field { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 7px; }
+.bal-field label { font-size: 13px; }
+.bal-field .in { display: flex; align-items: center; gap: 6px; }
+.bal-field input { width: 84px; border: 1px solid var(--border); border-radius: 7px; padding: 6px 8px; font-size: 13px; text-align: right; }
+.bal-field input:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 2px var(--primary-soft); }
+.bal-out { display: flex; flex-wrap: wrap; gap: 8px; margin: 16px 0 10px; }
+.bal-out .bchip { font-size: 13px; padding: 6px 12px; }
+.bal-out .bchip.big { background: var(--primary-soft); border-color: transparent; color: var(--primary-600); }
+.bal-out .bchip.big b { color: var(--primary-600); }
+.bal-note { font-size: 12px; color: var(--muted); background: var(--surface-2); border-radius: 8px; padding: 10px 12px; }
+
 /* Diagram primitives */
 .dgm-face { fill: #f1f5f9; stroke: #334155; stroke-width: 1.5; }
 .dgm-part { fill: #fff; stroke: #94a3b8; stroke-width: 1.5; }
