@@ -162,6 +162,56 @@ const DIAGRAMS = {
     ${MK(1, 238, 118)}
     <text x="230" y="284" class="dgm-cap" text-anchor="middle">Belt/chain condition & stretch ①; tensioner and guide wear ②.</text>
   </svg>`,
+
+  oil_pressure: `<svg viewBox="0 0 460 300">
+    <path d="M60 118 H206 V244 H60 Z" class="dgm-face"/><text x="72" y="234" class="dgm-cap">cylinder block</text>
+    <rect x="150" y="150" width="30" height="42" class="dgm-part"/><text x="120" y="146" class="dgm-cap">sender port</text>
+    <line x1="180" y1="168" x2="256" y2="120" class="dgm-line-2"/>
+    <circle cx="316" cy="104" r="48" class="dgm-part"/><circle cx="316" cy="104" r="41" class="dgm-line" fill="none"/>
+    <line x1="316" y1="104" x2="340" y2="76" class="dgm-acc"/><circle cx="316" cy="104" r="4" class="dgm-acc-fill"/>
+    <text x="316" y="170" class="dgm-cap" text-anchor="middle">oil pressure gauge</text>
+    ${MK(1, 316, 104)}
+    <text x="230" y="284" class="dgm-cap" text-anchor="middle">Warm engine; read pressure at the sender port at idle and 2,000 rpm.</text>
+  </svg>`,
+
+  oil_pump_clr: `<svg viewBox="0 0 460 300">
+    <circle cx="176" cy="150" r="96" class="dgm-face"/>
+    <circle cx="188" cy="150" r="66" class="dgm-part"/>
+    <circle cx="200" cy="150" r="40" class="dgm-part"/>
+    <line x1="80" y1="150" x2="98" y2="150" class="dgm-acc"/>${AH(80, 150, 'left')}<text x="66" y="132" class="dgm-cap">radial</text>${MK(1, 90, 150)}
+    <line x1="148" y1="122" x2="160" y2="118" class="dgm-acc"/><text x="150" y="108" class="dgm-cap">tip</text>${MK(2, 176, 96)}
+    <rect x="330" y="112" width="98" height="80" rx="6" class="dgm-part"/>
+    <line x1="330" y1="112" x2="428" y2="112" class="dgm-acc"/><text x="338" y="104" class="dgm-cap">axial (side)</text>${MK(3, 379, 112)}
+    <text x="230" y="284" class="dgm-cap" text-anchor="middle">Body-to-gear radial ①, gear tip ②, and axial/side ③ clearances.</text>
+  </svg>`,
+
+  thermostat: `<svg viewBox="0 0 460 300">
+    <path d="M120 66 H262 V196 A71 34 0 0 1 120 196 Z" class="dgm-face"/>
+    <line x1="130" y1="112" x2="252" y2="112" class="dgm-dash"/><text x="256" y="116" class="dgm-cap">water</text>
+    <circle cx="191" cy="176" r="30" class="dgm-part"/><text x="168" y="180" class="dgm-cap">t-stat</text>
+    <line x1="191" y1="146" x2="191" y2="114" class="dgm-acc"/>${AH(191, 114, 'up')}<text x="198" y="132" class="dgm-lbl">lift</text>${MK(2, 191, 132)}
+    <rect x="308" y="60" width="12" height="150" class="dgm-part"/><circle cx="314" cy="222" r="15" class="dgm-acc-fill"/><text x="330" y="150" class="dgm-cap">°C</text>${MK(1, 314, 140)}
+    <text x="230" y="284" class="dgm-cap" text-anchor="middle">Heat in water; note valve opening temperature ① and valve lift ②.</text>
+  </svg>`,
+
+  rad_cap: `<svg viewBox="0 0 460 300">
+    <rect x="150" y="86" width="34" height="26" class="dgm-part"/>
+    <circle cx="167" cy="150" r="52" class="dgm-part"/><circle cx="167" cy="150" r="34" class="dgm-line" fill="none"/><text x="140" y="222" class="dgm-cap">radiator cap</text>
+    <line x1="219" y1="140" x2="290" y2="126" class="dgm-line-2"/>
+    <circle cx="336" cy="118" r="46" class="dgm-part"/><circle cx="336" cy="118" r="39" class="dgm-line" fill="none"/><line x1="336" y1="118" x2="358" y2="94" class="dgm-acc"/><circle cx="336" cy="118" r="4" class="dgm-acc-fill"/>
+    ${MK(1, 336, 118)}
+    <text x="230" y="284" class="dgm-cap" text-anchor="middle">Apply pressure to the cap with a tester; note the relief pressure.</text>
+  </svg>`,
+
+  leak_test: `<svg viewBox="0 0 460 300">
+    <rect x="60" y="150" width="190" height="92" rx="8" class="dgm-face"/>
+    <line x1="60" y1="176" x2="250" y2="176" class="dgm-dash"/><line x1="60" y1="202" x2="250" y2="202" class="dgm-dash"/><text x="72" y="234" class="dgm-cap">radiator</text>
+    <rect x="140" y="118" width="42" height="32" class="dgm-part"/><text x="128" y="112" class="dgm-cap">filler neck</text>
+    <line x1="182" y1="130" x2="300" y2="112" class="dgm-line-2"/>
+    <circle cx="346" cy="104" r="46" class="dgm-part"/><circle cx="346" cy="104" r="39" class="dgm-line" fill="none"/><line x1="346" y1="104" x2="368" y2="80" class="dgm-acc"/><circle cx="346" cy="104" r="4" class="dgm-acc-fill"/>
+    ${MK(1, 346, 104)}
+    <text x="230" y="284" class="dgm-cap" text-anchor="middle">Pressurize to 157 kPa and watch the gauge for a drop / leaks.</text>
+  </svg>`,
 };
 
 /* Inline measurement helper (for components not in the engine spec JSON). */
@@ -289,5 +339,46 @@ const PROCEDURES = {
     { title: 'Tensioner & guides', tool: 'Visual / caliper', diagram: 'timing',
       instruction: 'Check tensioner travel and guide/shoe wear depth.',
       m: [IM({ key: 'guide_wear', label: 'Guide wear depth', unit: 'mm', limit: { max: 1.0 } })] },
+  ] },
+  tlub: { title: 'Lubrication system', steps: [
+    { title: 'Oil pressure check', tool: 'Oil pressure gauge (ST25051001)', diagram: 'oil_pressure',
+      instruction: 'Warm the engine to operating temperature, transmission in Neutral/Park. Read oil pressure at the sender port at idle and at 2,000 rpm.',
+      caution: 'Engine and oil are hot — avoid burns. If pressure is far off, check the oil passages and pump.',
+      m: [['lubrication', 'oil_pressure_idle', 'single'], ['lubrication', 'oil_pressure_2000', 'single']] },
+    { title: 'Oil pump gear clearances', tool: 'Feeler gauge + straightedge', diagram: 'oil_pump_clr',
+      instruction: 'With the pump apart, measure the body-to-outer-gear radial clearance, inner-to-outer gear tip clearance, and the axial (side) clearances.',
+      m: [['lubrication', 'oil_pump_body_outer_radial', 'single'], ['lubrication', 'oil_pump_tip_clearance', 'single'], ['lubrication', 'oil_pump_inner_axial', 'single'], ['lubrication', 'oil_pump_outer_axial', 'single'], ['lubrication', 'oil_pump_housing_clearance', 'single']] },
+    { title: 'Regulator (relief) valve', tool: 'Feeler gauge / visual', diagram: 'oil_pump_clr',
+      instruction: 'Check the regulator valve to oil-pump-cover clearance and that the valve slides freely.',
+      m: [['lubrication', 'regulator_valve_clearance', 'single']] },
+  ] },
+  tcool: { title: 'Cooling system', steps: [
+    { title: 'Pressure-test for leaks', tool: 'Radiator cap tester (EG17650301)', diagram: 'leak_test',
+      instruction: 'Inspect all hoses, then apply 157 kPa to the system and hold. The gauge should not drop and there should be no external leaks.',
+      caution: 'Never exceed the specified pressure — higher pressure can damage the radiator.',
+      m: [['cooling', 'leak_test_pressure', 'single'], IM({ key: 'hose_condition', label: 'Cooling hose condition', type: 'check', note: 'cracks / leaks / chafing / loose clamps' }), IM({ key: 'holds_pressure', label: 'System holds test pressure (no leaks)', type: 'check' })] },
+    { title: 'Radiator cap relief pressure', tool: 'Cap tester', diagram: 'rad_cap',
+      instruction: 'Apply pressure to the cap and note the relief pressure; compare to the standard and service limit.',
+      m: [['cooling', 'radiator_cap_relief', 'single']] },
+    { title: 'Thermostat test', tool: 'Beaker + thermometer', diagram: 'thermostat',
+      instruction: 'Confirm the valve seats tightly at ambient. Heat in water and record the valve opening temperature and the valve lift.',
+      m: [['cooling', 'thermostat_opening_temp', 'single'], ['cooling', 'thermostat_valve_lift', 'single'], IM({ key: 'thermostat_seating', label: 'Valve seats tightly at ambient temperature', type: 'check' })] },
+    { title: 'Water pump condition', tool: 'Visual / by hand', diagram: 'water_pump',
+      instruction: 'The pump is a sealed unit (not serviceable). Check for rust/corrosion of the body and vanes, and for rough operation or excess end play.',
+      m: [IM({ key: 'wp_body', label: 'No rust / corrosion on body & vanes', type: 'check' }), IM({ key: 'wp_endplay', label: 'Smooth operation, no excess end play', type: 'check' })] },
+  ] },
+  tdiag: { title: 'Overheating diagnostics', steps: [
+    { title: 'Cause analysis', tool: 'Diagnostic checklist', diagram: '',
+      instruction: 'Work the common overheating causes from the manual’s cause-analysis chart. Mark each “Fail” if a problem is found — failures can be flagged into the bill of materials.',
+      m: [
+        IM({ key: 'd_water_pump', label: 'Water pump (sealing / operation)', type: 'check' }),
+        IM({ key: 'd_thermostat', label: 'Thermostat not stuck closed', type: 'check' }),
+        IM({ key: 'd_radiator_flow', label: 'Radiator core not clogged / good flow', type: 'check' }),
+        IM({ key: 'd_fins', label: 'Radiator fins & airflow (no blockage)', type: 'check' }),
+        IM({ key: 'd_cap', label: 'Radiator cap seals & relieves correctly', type: 'check' }),
+        IM({ key: 'd_coolant', label: 'Coolant quality & mixture ratio', type: 'check' }),
+        IM({ key: 'd_fan', label: 'Cooling fan operation / fan clutch', type: 'check' }),
+        IM({ key: 'd_headgasket', label: 'No exhaust gas leak into coolant (head/gasket)', type: 'check' }),
+      ] },
   ] },
 };

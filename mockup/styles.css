@@ -214,6 +214,9 @@ tr:last-child td { border-bottom: none; }
 .wstep.done .wnum { background: var(--ok); color: #fff; border-color: var(--ok); }
 .wsep { width: 12px; height: 2px; background: var(--border); flex: none; }
 .wk-body { display: grid; grid-template-columns: minmax(260px, 1.25fr) 1fr; gap: 20px; align-items: start; }
+.wk-body.no-diagram { grid-template-columns: 1fr; }
+.check-sel { border: 1px solid var(--border); border-radius: 8px; padding: 7px 10px; font-size: 13px; font-family: inherit; background: #fff; min-width: 96px; }
+.check-sel:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px var(--primary-soft); }
 .diagram { background: #fff; border: 1px solid var(--border); border-radius: 12px; padding: 10px; box-shadow: var(--shadow); }
 .diagram svg { width: 100%; height: auto; display: block; }
 .wk-instr .chip { background: var(--primary-soft); border-color: #fed7aa; color: var(--primary-600); }

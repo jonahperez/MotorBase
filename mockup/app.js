@@ -29,7 +29,7 @@ const BUILDS = [
   { id: 'coyote', name: 'Coyote 5.0 track engine', engine: 'COYOTE', engineName: 'Ford 5.0L V8', status: 'completed', specRev: 'v2', progress: 100 },
 ];
 
-const PHASES = ['TEARDOWN', 'CLEAN', 'INSPECT', 'MACHINE', 'ASSEMBLE', 'FINAL'];
+const PHASES = ['TEARDOWN', 'CLEAN', 'INSPECT', 'MACHINE', 'ASSEMBLE', 'SYSTEMS', 'FINAL'];
 
 const TASKS = [
   { id: 't1', phase: 'TEARDOWN', name: 'Disassemble & label components', sub: 'Bag hardware, record teardown notes', status: 'done' },
@@ -47,6 +47,9 @@ const TASKS = [
   { id: 't9', phase: 'MACHINE', name: 'Valve job & resurface heads', status: 'todo' },
   { id: 't10', phase: 'ASSEMBLE', name: 'Set bearing clearances & torque', sub: 'Angular torque per precautions', status: 'todo' },
   { id: 't11', phase: 'ASSEMBLE', name: 'Degree cams & set valvetrain', status: 'todo' },
+  { id: 'tlub', phase: 'SYSTEMS', name: 'Lubrication system', status: 'todo' },
+  { id: 'tcool', phase: 'SYSTEMS', name: 'Cooling system', status: 'todo' },
+  { id: 'tdiag', phase: 'SYSTEMS', name: 'Overheating diagnostics', status: 'todo' },
   { id: 't12', phase: 'FINAL', name: 'Compression check & final specs', status: 'todo' },
 ];
 
@@ -137,6 +140,12 @@ const lo = r => (r && r.min != null) ? r.min : -Infinity;
 const hi = r => (r && r.max != null) ? r.max : Infinity;
 
 function evaluate(m, reading) {
+  if (m && m.type === 'check') {
+    if (reading === 'pass') return { cls: 'ok', text: 'Pass' };
+    if (reading === 'fail') return { cls: 'bad', text: 'Fail' };
+    if (reading === 'na') return { cls: 'muted', text: 'N/A' };
+    return { cls: 'muted', text: '—' };
+  }
   if (reading === '' || reading == null || isNaN(reading)) return { cls: 'muted', text: '—' };
   reading = Number(reading);
   if (m.grades && m.grades.length) {
@@ -147,7 +156,9 @@ function evaluate(m, reading) {
   if (std && reading >= lo(std) && reading <= hi(std)) return { cls: 'ok', text: 'In spec' };
   if (lim) {
     if (reading > hi(lim) || reading < lo(lim)) return { cls: 'bad', text: 'Beyond limit' };
-    return { cls: 'warn', text: 'Out of standard' };
+    // Within the limit: if there is also a standard range, it's serviceable-but-out-of-standard;
+    // if the limit is the only spec (e.g. "more than 59 kPa"), within-limit is in spec.
+    return std ? { cls: 'warn', text: 'Out of standard' } : { cls: 'ok', text: 'In spec' };
   }
   if (std) return { cls: 'warn', text: 'Out of standard' };
   if (m.nominal != null) return reading === m.nominal ? { cls: 'ok', text: 'In spec' } : { cls: 'warn', text: 'Off nominal' };
@@ -291,6 +302,15 @@ function evalField(t, r, instKey) { return evaluate(r.m, getV(t.id, fieldFor(r, 
 function measBlock(t, entry, idx) {
   const r = resolveStepMeas(entry);
   if (!r.m) return '';
+  if (r.m.type === 'check') {
+    const f = fieldFor(r, ''); const val = getV(t.id, f); const e = evaluate(r.m, val);
+    const opt = (v, l) => `<option value="${v}" ${val === v ? 'selected' : ''}>${l}</option>`;
+    return `<div class="meas-row wmeas">
+      <div class="meas-name"><span class="mknum">${idx + 1}</span>${r.m.label}<small>${r.m.note || 'pass / fail check'}</small></div>
+      <div class="meas-input"><select class="check-sel" data-mv="${t.id}|${f}">${opt('', '—')}${opt('pass', 'Pass')}${opt('fail', 'Fail')}${opt('na', 'N/A')}</select></div>
+      <div data-badge="${f}">${badge(e.cls, e.text)}</div>
+    </div>`;
+  }
   const insts = instancesFor(r.scope, r.m);
   const single = insts.length === 1 && insts[0].key === '';
   if (single) {
@@ -336,8 +356,10 @@ function renderWalkthrough(panel, t) {
   const beyond = [];
   step.m.forEach(entry => {
     const r = resolveStepMeas(entry); if (!r.m) return;
-    instancesFor(r.scope, r.m).forEach(inst => { if (evalField(t, r, inst.key).text === 'Beyond limit') beyond.push({ r, inst }); });
+    const insts = r.m.type === 'check' ? [{ key: '', label: '' }] : instancesFor(r.scope, r.m);
+    insts.forEach(inst => { if (['Beyond limit', 'Fail'].includes(evalField(t, r, inst.key).text)) beyond.push({ r, inst }); });
   });
+  const hasDiagram = !!DIAGRAMS[step.diagram];
   const noteKey = `${t.id}.${si}`;
   panel.innerHTML = `
     <div class="wk-head">
@@ -345,8 +367,8 @@ function renderWalkthrough(panel, t) {
       <div class="wk-nav"><button class="btn sm" data-stepnav="-1" ${si === 0 ? 'disabled' : ''}>‹ Prev</button><button class="btn primary sm" data-stepnav="1">${si === n - 1 ? 'Finish ✓' : 'Next ›'}</button></div>
     </div>
     <div class="wstepper">${stepper}</div>
-    <div class="wk-body">
-      <div class="diagram">${DIAGRAMS[step.diagram] || ''}</div>
+    <div class="wk-body ${hasDiagram ? '' : 'no-diagram'}">
+      ${hasDiagram ? `<div class="diagram">${DIAGRAMS[step.diagram]}</div>` : ''}
       <div class="wk-side">
         <div class="wk-instr"><span class="chip">🛠 ${step.tool}</span><p>${step.instruction}</p>${step.caution ? `<div class="mini-caution">⚠ ${step.caution}</div>` : ''}</div>
         <div class="wk-meas">${blocks}</div>
@@ -356,15 +378,18 @@ function renderWalkthrough(panel, t) {
       </div>
     </div>`;
 
-  panel.querySelectorAll('input[data-mv]').forEach(inp => inp.addEventListener('input', () => {
-    const bar = inp.dataset.mv.indexOf('|');
-    const tid = inp.dataset.mv.slice(0, bar), field = inp.dataset.mv.slice(bar + 1);
-    setV(tid, field, inp.value);
-    const r = fieldToResolved(field);
-    const e = evaluate(r.m, inp.value);
-    const b = panel.querySelector(`[data-badge="${cssEsc(field)}"]`);
-    if (b) b.innerHTML = b.classList.contains('inst-badge') ? miniBadge(e) : badge(e.cls, e.text);
-  }));
+  panel.querySelectorAll('[data-mv]').forEach(inp => {
+    const parse = () => { const bar = inp.dataset.mv.indexOf('|'); return [inp.dataset.mv.slice(0, bar), inp.dataset.mv.slice(bar + 1)]; };
+    // Live badge update while typing (no re-render, so focus/caret is preserved).
+    inp.addEventListener('input', () => {
+      const [tid, field] = parse(); setV(tid, field, inp.value);
+      const e = evaluate(fieldToResolved(field).m, inp.value);
+      const b = panel.querySelector(`[data-badge="${cssEsc(field)}"]`);
+      if (b) b.innerHTML = b.classList.contains('inst-badge') ? miniBadge(e) : badge(e.cls, e.text);
+    });
+    // On commit (blur / dropdown change) re-render so the callout + stepper refresh.
+    inp.addEventListener('change', () => { const [tid, field] = parse(); setV(tid, field, inp.value); renderWalkthrough(panel, t); });
+  });
   const ta = panel.querySelector('textarea[data-note]');
   if (ta) ta.addEventListener('input', () => { NOTES[ta.dataset.note] = ta.value; });
   const addn = panel.querySelector('[data-addneed]');

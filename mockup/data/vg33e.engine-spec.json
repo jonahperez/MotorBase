@@ -282,6 +282,32 @@
       "measurements": [
         { "key": "flywheel_runout", "label": "Flywheel / drive plate runout (TIR)", "unit": "mm", "limit": { "max": 0.15 }, "notes": "Less than 0.15 mm." }
       ]
+    },
+    {
+      "key": "lubrication",
+      "title": "Engine lubrication system",
+      "component": "lubrication",
+      "measurements": [
+        { "key": "oil_pressure_idle", "label": "Oil pressure at idle", "unit": "kPa", "limit": { "min": 59 }, "notes": "Engine hot, no load; more than 59 kPa (0.6, 9 psi)." },
+        { "key": "oil_pressure_2000", "label": "Oil pressure at 2,000 rpm", "unit": "kPa", "standard": { "min": 412, "max": 451 }, "atValue": 2000, "atUnit": "rpm", "notes": "Engine hot, no load." },
+        { "key": "regulator_valve_clearance", "label": "Regulator valve to oil-pump cover clearance", "unit": "mm", "standard": { "min": 0.040, "max": 0.097 } },
+        { "key": "oil_pump_body_outer_radial", "label": "Oil pump body to outer gear radial clearance", "unit": "mm", "standard": { "min": 0.114, "max": 0.200 } },
+        { "key": "oil_pump_tip_clearance", "label": "Inner gear to outer gear tip clearance", "unit": "mm", "limit": { "max": 0.18 }, "notes": "Below 0.18 mm." },
+        { "key": "oil_pump_inner_axial", "label": "Body to inner gear axial clearance", "unit": "mm", "standard": { "min": 0.05, "max": 0.09 } },
+        { "key": "oil_pump_outer_axial", "label": "Body to outer gear axial clearance", "unit": "mm", "standard": { "min": 0.050, "max": 0.110 } },
+        { "key": "oil_pump_housing_clearance", "label": "Inner gear to brazed portion of housing clearance", "unit": "mm", "standard": { "min": 0.045, "max": 0.091 } }
+      ]
+    },
+    {
+      "key": "cooling",
+      "title": "Engine cooling system",
+      "component": "cooling",
+      "measurements": [
+        { "key": "radiator_cap_relief", "label": "Radiator cap relief pressure", "unit": "kPa", "standard": { "min": 78, "max": 98 }, "limit": { "min": 59 }, "notes": "Standard 78-98 kPa; service limit 59 kPa (test with cap tester)." },
+        { "key": "leak_test_pressure", "label": "Cooling system leak-test pressure", "unit": "kPa", "nominal": 157, "notes": "Apply 157 kPa (1.6, 23 psi) and hold; no drop / no leaks. Do not exceed." },
+        { "key": "thermostat_opening_temp", "label": "Thermostat valve opening temperature", "unit": "°C", "nominal": 82, "notes": "82°C (180°F)." },
+        { "key": "thermostat_valve_lift", "label": "Thermostat valve lift", "unit": "mm", "limit": { "min": 10 }, "atValue": 95, "atUnit": "°C", "notes": "More than 10 mm at 95°C (0.39 in / 203°F)." }
+      ]
     }
   ]
 }

@@ -44,7 +44,9 @@ def evaluate(measurement, reading):
         # Upper wear limit (limit.max) and/or lower "more than" limit (limit.min).
         if reading > _hi(lim) or reading < _lo(lim):
             return "BEYOND_LIMIT"
-        return "OUT_OF_STANDARD"
+        # Within the limit: serviceable-but-out-of-standard if a standard range also
+        # exists; if the limit is the only spec (e.g. "more than 59"), it is in spec.
+        return "OUT_OF_STANDARD" if std else "IN_SPEC"
 
     if std:
         return "OUT_OF_STANDARD"
