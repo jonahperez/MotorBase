@@ -1,8 +1,14 @@
 /* Technical SVG diagrams + step-by-step procedures for the guided walkthrough.
    Diagrams use CSS classes defined in styles.css (.dgm-*). Numbered markers (①②③)
-   correspond to the numbered measurement rows shown beside each diagram. */
+   correspond to the numbered measurement blocks shown beside each diagram.
 
-const AH = (x, y, dir) => { // small arrowhead triangle, dir: up/down/left/right
+   Measurement refs are [section, key, scope]. scope drives how many per-instance
+   inputs are rendered from the build's engine layout:
+     head | cylinder | piston | valve | main_journal | rod | single
+   A ref can also be an inline object {key,label,unit,scope,standard,limit,nominal,
+   grades,appliesTo,note} for measurements not in the engine spec (e.g. pumps). */
+
+const AH = (x, y, dir) => {
   const s = 5;
   if (dir === 'up') return `<polygon points="${x - s},${y + s} ${x + s},${y + s} ${x},${y - s}" fill="#ea580c"/>`;
   if (dir === 'down') return `<polygon points="${x - s},${y - s} ${x + s},${y - s} ${x},${y + s}" fill="#ea580c"/>`;
@@ -112,81 +118,176 @@ const DIAGRAMS = {
     ${MK(1, 120, 150)}${MK(2, 230, 123)}
     <text x="230" y="266" class="dgm-cap" text-anchor="middle">Measure main journal Dm ①; read runout at center ② on V-blocks.</text>
   </svg>`,
+
+  rod: `<svg viewBox="0 0 460 300">
+    <circle cx="110" cy="150" r="30" class="dgm-part"/><circle cx="110" cy="150" r="13" class="dgm-line"/><text x="84" y="112" class="dgm-cap">small end</text>
+    <circle cx="356" cy="150" r="52" class="dgm-part"/><circle cx="356" cy="150" r="34" class="dgm-line"/><text x="332" y="88" class="dgm-cap">big end</text>
+    <path d="M132 138 L316 128 M132 162 L312 176" class="dgm-line-2"/>
+    <line x1="322" y1="150" x2="390" y2="150" class="dgm-acc"/>${AH(322, 150, 'left')}${AH(390, 150, 'right')}<text x="330" y="142" class="dgm-lbl">bore</text>
+    ${MK(1, 356, 150)}
+    <line x1="356" y1="202" x2="356" y2="220" class="dgm-acc"/>${AH(356, 220, 'down')}<text x="316" y="236" class="dgm-cap">side clearance</text>${MK(2, 356, 210)}
+    <text x="230" y="284" class="dgm-cap" text-anchor="middle">Big-end bore ①, bend/twist, and rod side clearance ②.</text>
+  </svg>`,
+
+  oil_pump: `<svg viewBox="0 0 460 300">
+    <rect x="64" y="46" width="220" height="208" rx="18" class="dgm-face"/>
+    <circle cx="174" cy="150" r="90" class="dgm-part"/>
+    <circle cx="188" cy="150" r="62" class="dgm-part"/>
+    <line x1="174" y1="60" x2="174" y2="88" class="dgm-acc"/>${AH(174, 60, 'up')}${AH(174, 88, 'down')}
+    <text x="150" y="52" class="dgm-lbl">tip clr</text>${MK(1, 174, 74)}
+    <line x1="250" y1="150" x2="264" y2="150" class="dgm-acc"/><text x="238" y="180" class="dgm-cap">rotor–housing</text>${MK(2, 300, 150)}
+    <rect x="330" y="112" width="98" height="80" rx="6" class="dgm-part"/>
+    <line x1="330" y1="112" x2="428" y2="112" class="dgm-acc"/><text x="338" y="104" class="dgm-cap">side clr</text>${MK(3, 379, 112)}
+    <text x="230" y="284" class="dgm-cap" text-anchor="middle">Rotor tip ①, outer-rotor-to-housing ②, and side ③ clearances.</text>
+  </svg>`,
+
+  water_pump: `<svg viewBox="0 0 460 300">
+    <rect x="58" y="72" width="176" height="150" rx="14" class="dgm-face"/>
+    <circle cx="146" cy="147" r="60" class="dgm-part"/>
+    <line x1="146" y1="147" x2="118" y2="104" class="dgm-line"/><line x1="146" y1="147" x2="192" y2="122" class="dgm-line"/><line x1="146" y1="147" x2="184" y2="188" class="dgm-line"/><line x1="146" y1="147" x2="106" y2="184" class="dgm-line"/>
+    <line x1="206" y1="147" x2="356" y2="147" class="dgm-line-2"/>
+    <rect x="248" y="130" width="56" height="34" class="dgm-part"/><text x="250" y="124" class="dgm-cap">bearing</text>
+    <circle cx="380" cy="147" r="22" class="dgm-part"/><text x="368" y="184" class="dgm-cap">pulley</text>
+    <line x1="146" y1="207" x2="146" y2="228" class="dgm-acc"/>${AH(146, 228, 'down')}<text x="116" y="244" class="dgm-cap">weep hole</text>${MK(3, 146, 218)}
+    <line x1="206" y1="147" x2="224" y2="147" class="dgm-acc"/><text x="208" y="138" class="dgm-cap">end play</text>${MK(2, 300, 147)}
+    ${MK(1, 146, 147)}
+    <text x="230" y="284" class="dgm-cap" text-anchor="middle">Impeller-to-housing ①, shaft end play ②, weep-hole leak check ③.</text>
+  </svg>`,
+
+  timing: `<svg viewBox="0 0 460 300">
+    <circle cx="150" cy="200" r="52" class="dgm-part"/><circle cx="150" cy="200" r="10" class="dgm-line"/><text x="130" y="204" class="dgm-cap">crank</text>
+    <circle cx="330" cy="90" r="40" class="dgm-part"/><circle cx="330" cy="90" r="8" class="dgm-line"/><text x="318" y="94" class="dgm-cap">cam</text>
+    <line x1="120" y1="158" x2="300" y2="64" class="dgm-line-2"/><line x1="196" y1="234" x2="366" y2="118" class="dgm-line-2"/>
+    <circle cx="250" cy="182" r="15" class="dgm-part"/><line x1="250" y1="167" x2="250" y2="152" class="dgm-acc"/>${AH(250, 152, 'up')}<text x="262" y="190" class="dgm-cap">tensioner</text>${MK(2, 250, 182)}
+    ${MK(1, 238, 118)}
+    <text x="230" y="284" class="dgm-cap" text-anchor="middle">Belt/chain condition & stretch ①; tensioner and guide wear ②.</text>
+  </svg>`,
 };
 
-/* Procedures: ordered steps per task. Each step: title, tool, instruction,
-   optional caution, diagram id, and measurement refs [section, key]. */
+/* Inline measurement helper (for components not in the engine spec JSON). */
+const IM = (o) => Object.assign({ inline: true }, o);
+
 const PROCEDURES = {
   t5: { title: 'Examine cylinder head', steps: [
     { title: 'Check head surface flatness', tool: 'Straightedge + feeler gauge', diagram: 'head_flatness',
-      instruction: 'Lay a precision straightedge across the head deck in six directions and slide a feeler gauge underneath to find the widest gap. Record the largest reading.',
+      instruction: 'On each cylinder head, lay a straightedge across the deck in six directions and slide a feeler gauge underneath to find the widest gap.',
       caution: 'If beyond limit, resurface within the combined head + block limit, or replace.',
-      m: [['cylinder_head', 'surface_flatness']] },
+      m: [['cylinder_head', 'surface_flatness', 'head']] },
     { title: 'Measure cylinder head height', tool: 'Vernier caliper / height gauge', diagram: 'head_height',
-      instruction: 'Measure from the deck (head-to-block) face to the cam-cover face at the specified location. Compare against the nominal height.',
-      m: [['cylinder_head', 'height']] },
+      instruction: 'Measure each head from the deck (head-to-block) face to the cam-cover face; compare to nominal.',
+      m: [['cylinder_head', 'height', 'head']] },
     { title: 'Check valve-to-guide clearance', tool: 'Dial gauge, bore gauge + micrometer', diagram: 'valve_guide',
-      instruction: 'Rock the valve against its guide with a dial gauge to read deflection. If excessive, measure the stem OD and guide ID and compute the clearance.',
-      m: [['valve', 'to_guide_clearance_intake'], ['valve', 'to_guide_clearance_exhaust']] },
+      instruction: 'Rock each valve against its guide to read deflection; if excessive, measure stem OD and guide ID and compute clearance. Recorded per valve.',
+      m: [['valve', 'to_guide_clearance_intake', 'valve'], ['valve', 'to_guide_clearance_exhaust', 'valve']] },
     { title: 'Inspect valve seats', tool: 'Prussian blue / seat-width gauge', diagram: 'valve_seat',
-      instruction: 'Check the seat contact band on the valve face. Measure the contacting width W and confirm the seat angle. Re-cut or replace if worn.',
-      m: [['valve_seat', 'contact_width_intake'], ['valve_seat', 'contact_width_exhaust'], ['valve', 'seat_angle']] },
+      instruction: 'Check each seat contact band; measure the contacting width W and confirm the seat angle. Recorded per valve seat.',
+      m: [['valve_seat', 'contact_width_intake', 'valve'], ['valve_seat', 'contact_width_exhaust', 'valve'], ['valve', 'seat_angle', 'valve']] },
   ] },
   t6: { title: 'Evaluate valvetrain', steps: [
     { title: 'Measure valve stem diameter', tool: 'Micrometer', diagram: 'valve_dims',
-      instruction: 'Measure the stem at the top, center, and bottom of the wear area. Record the smallest reading for intake and exhaust.',
-      m: [['valve', 'stem_diameter_intake'], ['valve', 'stem_diameter_exhaust']] },
+      instruction: 'Measure each valve stem at the top, center, and bottom of the wear area; record the smallest. Per valve (intake and exhaust).',
+      m: [['valve', 'stem_diameter_intake', 'valve'], ['valve', 'stem_diameter_exhaust', 'valve']] },
     { title: 'Check valve margin thickness', tool: 'Vernier caliper', diagram: 'valve_dims',
-      instruction: 'Measure margin thickness T. Replace the valve if it has worn below the limit.',
+      instruction: 'Measure margin thickness T on each valve; replace any worn below the limit.',
       caution: 'A margin below the limit runs too hot and can burn the valve.',
-      m: [['valve', 'margin_thickness_intake']] },
-    { title: 'Verify seat angle', tool: 'Valve grinder / protractor', diagram: 'valve_seat',
-      instruction: 'Confirm the valve face / seat angle before cutting.',
-      m: [['valve', 'seat_angle']] },
+      m: [['valve', 'margin_thickness_intake', 'valve'], ['valve', 'margin_thickness_exhaust', 'valve']] },
     { title: 'Measure valve-to-guide clearance', tool: 'Dial gauge', diagram: 'valve_guide',
-      instruction: 'Read valve deflection in the wear direction; replace the valve or guide if beyond limit.',
-      m: [['valve', 'to_guide_clearance_intake'], ['valve', 'to_guide_clearance_exhaust']] },
+      instruction: 'Read valve deflection in the wear direction for each valve; replace valve or guide if beyond limit.',
+      m: [['valve', 'to_guide_clearance_intake', 'valve'], ['valve', 'to_guide_clearance_exhaust', 'valve']] },
     { title: 'Test valve springs', tool: 'Spring tester + square', diagram: 'valve_spring',
-      instruction: 'Check free height and out-of-square, then measure installed pressure at the specified height.',
-      m: [['valve_spring', 'free_height_outer'], ['valve_spring', 'pressure_outer']] },
+      instruction: 'Check free height and out-of-square, then measure installed pressure at the specified height. Per valve spring.',
+      m: [['valve_spring', 'free_height_outer', 'valve'], ['valve_spring', 'pressure_outer', 'valve']] },
   ] },
   t3: { title: 'Examine cylinders', steps: [
     { title: 'Measure bore diameter', tool: 'Bore gauge', diagram: 'bore',
-      instruction: 'Measure each cylinder at A (top), B (middle) and C (bottom), in both the X and Y axes. Note the grade.',
-      m: [['cylinder_block', 'bore_inner_diameter']] },
+      instruction: 'Measure each cylinder (1–6) at A/B/C depths in the X and Y axes; record the grade per cylinder.',
+      m: [['cylinder_block', 'bore_inner_diameter', 'cylinder']] },
     { title: 'Check out-of-round', tool: 'Bore gauge', diagram: 'bore',
-      instruction: 'Out-of-round = X − Y at the same depth. Record the largest difference.',
-      m: [['cylinder_block', 'out_of_round']] },
+      instruction: 'Out-of-round = X − Y at the same depth, per cylinder.',
+      m: [['cylinder_block', 'out_of_round', 'cylinder']] },
     { title: 'Check taper', tool: 'Bore gauge', diagram: 'bore',
-      instruction: 'Taper = top (A) reading − bottom (B/C) reading.',
-      m: [['cylinder_block', 'taper']] },
+      instruction: 'Taper = top (A) − bottom (B/C), per cylinder.',
+      m: [['cylinder_block', 'taper', 'cylinder']] },
     { title: 'Check deck flatness', tool: 'Straightedge + feeler gauge', diagram: 'head_flatness',
-      instruction: 'Check block-deck flatness the same way as the head deck.',
-      m: [['cylinder_block', 'surface_flatness']] },
+      instruction: 'Check block-deck flatness on each bank the same way as the head deck.',
+      m: [['cylinder_block', 'surface_flatness', 'head']] },
   ] },
   t4: { title: 'Examine pistons', steps: [
     { title: 'Measure piston skirt diameter', tool: 'Micrometer', diagram: 'piston',
-      instruction: "Measure the skirt 90° to the pin, at the specified height 'a' from the bottom. Note the grade.",
-      m: [['piston', 'skirt_diameter']] },
+      instruction: "Measure each piston's skirt 90° to the pin at height 'a' from the bottom; record the grade per piston.",
+      m: [['piston', 'skirt_diameter', 'piston']] },
     { title: 'Piston-to-bore clearance', tool: 'Micrometer + bore gauge', diagram: 'piston',
-      instruction: 'Clearance = measured bore − skirt diameter.',
-      m: [['piston', 'to_cylinder_clearance']] },
+      instruction: 'Clearance = measured bore − skirt diameter, per cylinder.',
+      m: [['piston', 'to_cylinder_clearance', 'piston']] },
     { title: 'Measure pin bore', tool: 'Small-bore gauge', diagram: 'piston',
-      instruction: 'Measure the piston pin bore diameter.',
-      m: [['piston', 'pin_hole_diameter']] },
+      instruction: 'Measure each piston pin bore diameter.',
+      m: [['piston', 'pin_hole_diameter', 'piston']] },
   ] },
-  t7: { title: 'Crankshaft & bearings', steps: [
+  tc: { title: 'Crankshaft inspection', steps: [
     { title: 'Main journal diameter', tool: 'Micrometer', diagram: 'crank',
-      instruction: 'Measure each main journal; record the grade used to select bearings.',
-      m: [['crankshaft', 'main_journal_diameter']] },
+      instruction: 'Measure each main journal (1–4); record the grade used to select main bearings.',
+      m: [['crankshaft', 'main_journal_diameter', 'main_journal']] },
+    { title: 'Rod (pin) journal diameter', tool: 'Micrometer', diagram: 'crank',
+      instruction: 'Measure each rod journal (1–6).',
+      m: [['crankshaft', 'pin_journal_diameter', 'rod']] },
+    { title: 'Journal out-of-round & taper', tool: 'Micrometer', diagram: 'crank',
+      instruction: 'Check out-of-round (X − Y) and taper (A − B) on each main journal.',
+      m: [['crankshaft', 'out_of_round', 'main_journal'], ['crankshaft', 'taper', 'main_journal']] },
     { title: 'Crankshaft runout', tool: 'V-blocks + dial gauge', diagram: 'crank',
       instruction: 'Support the end journals on V-blocks and read total indicator runout at the center journal.',
-      m: [['crankshaft', 'runout']] },
-    { title: 'Crankshaft end play', tool: 'Dial gauge', diagram: 'crank',
-      instruction: 'Pry the crank fore and aft and read the end float.',
-      m: [['crankshaft', 'free_end_play']] },
-    { title: 'Bearing selection & clearance', tool: 'Plastigage / micrometer', diagram: 'crank',
-      instruction: 'Select the bearing grade that lands the clearance in range, then confirm with Plastigage.',
-      m: [['main_bearing', 'no1_thickness'], ['bearing_clearance', 'main_bearing_clearance']] },
+      m: [['crankshaft', 'runout', 'single']] },
+    { title: 'End play & main bearing clearance', tool: 'Dial gauge / Plastigage', diagram: 'crank',
+      instruction: 'Read crank end play; then check main bearing clearance at each main journal (select grade to suit).',
+      m: [['crankshaft', 'free_end_play', 'single'], ['bearing_clearance', 'main_bearing_clearance', 'main_journal']] },
+  ] },
+  tr: { title: 'Connecting rods & bearings', steps: [
+    { title: 'Rod bend & twist', tool: 'Rod alignment fixture', diagram: 'rod',
+      instruction: 'Check each connecting rod for bend and twist per 100 mm.',
+      m: [['connecting_rod', 'bend_limit', 'rod'], ['connecting_rod', 'torsion_limit', 'rod']] },
+    { title: 'Big-end bore', tool: 'Bore gauge', diagram: 'rod',
+      instruction: 'Measure each rod big-end housing bore (caps torqued, no bearing).',
+      m: [['connecting_rod', 'big_end_inner_diameter', 'rod']] },
+    { title: 'Rod side clearance', tool: 'Feeler gauge', diagram: 'rod',
+      instruction: 'With rods on the crank, measure side clearance at each journal.',
+      m: [['connecting_rod', 'side_clearance', 'rod']] },
+    { title: 'Rod bearing clearance', tool: 'Plastigage / micrometer', diagram: 'rod',
+      instruction: 'Check rod bearing clearance at each journal; select bearing grade to suit.',
+      m: [['bearing_clearance', 'connecting_rod_bearing_clearance', 'rod']] },
+  ] },
+  top: { title: 'Oil pump', steps: [
+    { title: 'Rotor tip clearance', tool: 'Feeler gauge', diagram: 'oil_pump',
+      instruction: 'Measure the clearance between the inner and outer rotor tips. (Illustrative limits — verify against the manual.)',
+      m: [IM({ key: 'tip_clearance', label: 'Rotor tip clearance', unit: 'mm', standard: { min: 0.05, max: 0.12 }, limit: { max: 0.20 } })] },
+    { title: 'Outer rotor to housing', tool: 'Feeler gauge', diagram: 'oil_pump',
+      instruction: 'Measure the clearance between the outer rotor and the pump housing.',
+      m: [IM({ key: 'outer_clearance', label: 'Outer rotor to housing', unit: 'mm', standard: { min: 0.11, max: 0.20 }, limit: { max: 0.30 } })] },
+    { title: 'Rotor side clearance', tool: 'Straightedge + feeler gauge', diagram: 'oil_pump',
+      instruction: 'Measure the rotor end (side) clearance against the cover face.',
+      m: [IM({ key: 'side_clearance', label: 'Rotor side clearance', unit: 'mm', standard: { min: 0.05, max: 0.11 }, limit: { max: 0.20 } })] },
+    { title: 'Relief valve & spring', tool: 'Visual / spring tester', diagram: 'oil_pump',
+      instruction: 'Inspect the relief valve for scoring and free movement; check the spring free length. Record notes.',
+      m: [] },
+  ] },
+  twp: { title: 'Water pump', steps: [
+    { title: 'Shaft bearing end play', tool: 'Dial gauge', diagram: 'water_pump',
+      instruction: 'Check the pump shaft/bearing for axial and radial play. (Illustrative limit.)',
+      m: [IM({ key: 'shaft_play', label: 'Shaft bearing play', unit: 'mm', limit: { max: 0.10 } })] },
+    { title: 'Impeller-to-housing clearance', tool: 'Feeler gauge', diagram: 'water_pump',
+      instruction: 'Measure the clearance between the impeller vanes and the housing.',
+      m: [IM({ key: 'impeller_clearance', label: 'Impeller to housing', unit: 'mm', standard: { min: 0.5, max: 1.0 } })] },
+    { title: 'Weep-hole & seal leak check', tool: 'Visual', diagram: 'water_pump',
+      instruction: 'Inspect the weep hole for coolant traces and spin the pump to feel for roughness. Record notes / pass–fail.',
+      m: [] },
+  ] },
+  tt: { title: 'Timing chain / belt', steps: [
+    { title: 'Belt / chain condition', tool: 'Visual', diagram: 'timing',
+      instruction: 'Inspect the belt for cracks/wear or the chain for stretch and worn links. Record notes.',
+      m: [] },
+    { title: 'Chain stretch / belt tension', tool: 'Scale / tension gauge', diagram: 'timing',
+      instruction: 'Measure chain elongation over a set number of links, or belt deflection under load. (Illustrative limit.)',
+      m: [IM({ key: 'chain_stretch', label: 'Chain stretch (over 20 links)', unit: 'mm', limit: { max: 3.0 } })] },
+    { title: 'Tensioner & guides', tool: 'Visual / caliper', diagram: 'timing',
+      instruction: 'Check tensioner travel and guide/shoe wear depth.',
+      m: [IM({ key: 'guide_wear', label: 'Guide wear depth', unit: 'mm', limit: { max: 1.0 } })] },
   ] },
 };

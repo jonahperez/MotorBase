@@ -23,7 +23,8 @@ const NAV = [
 ];
 
 const BUILDS = [
-  { id: 'vg33e', name: 'VG33E Pathfinder rebuild', engine: 'VG33E', engineName: 'Nissan 3.3L V6', status: 'in_progress', specRev: 'example-1', progress: 45 },
+  { id: 'vg33e', name: 'VG33E Pathfinder rebuild', engine: 'VG33E', engineName: 'Nissan 3.3L V6', status: 'in_progress', specRev: 'example-1', progress: 45,
+    layout: { config: 'V6', heads: ['Left', 'Right'], cylinders: 6, mainJournals: 4, valves: { intake: 1, exhaust: 1 } } },
   { id: 'sbc350', name: 'SBC 350 street build', engine: 'SBC350', engineName: 'Chevrolet 5.7L V8', status: 'planned', specRev: '—', progress: 8 },
   { id: 'coyote', name: 'Coyote 5.0 track engine', engine: 'COYOTE', engineName: 'Ford 5.0L V8', status: 'completed', specRev: 'v2', progress: 100 },
 ];
@@ -31,37 +32,80 @@ const BUILDS = [
 const PHASES = ['TEARDOWN', 'CLEAN', 'INSPECT', 'MACHINE', 'ASSEMBLE', 'FINAL'];
 
 const TASKS = [
-  { id: 't1', phase: 'TEARDOWN', name: 'Disassemble & label components', sub: 'Bag hardware, record teardown notes', status: 'done', m: [] },
-  { id: 't2', phase: 'CLEAN', name: 'Hot-tank & clean block / head', sub: 'Degrease, chase threads', status: 'done', m: [] },
-  { id: 't3', phase: 'INSPECT', name: 'Examine cylinders', category: 'cylinder_block', status: 'done',
-    m: [['cylinder_block', 'bore_inner_diameter'], ['cylinder_block', 'out_of_round'], ['cylinder_block', 'taper'], ['cylinder_block', 'surface_flatness']] },
-  { id: 't4', phase: 'INSPECT', name: 'Examine pistons', category: 'piston', status: 'todo',
-    m: [['piston', 'skirt_diameter'], ['piston', 'to_cylinder_clearance'], ['piston', 'pin_hole_diameter']] },
-  { id: 't5', phase: 'INSPECT', name: 'Examine cylinder head', category: 'cylinder_head', status: 'todo',
-    m: [['cylinder_head', 'surface_flatness'], ['cylinder_head', 'height'], ['valve_seat', 'contact_width_intake'], ['valve_seat', 'contact_width_exhaust']] },
-  { id: 't6', phase: 'INSPECT', name: 'Evaluate valvetrain', category: 'valvetrain', status: 'issue',
-    m: [['valve', 'stem_diameter_intake'], ['valve', 'stem_diameter_exhaust'], ['valve', 'seat_angle'], ['valve', 'margin_thickness_intake'], ['valve', 'to_guide_clearance_intake'], ['valve', 'to_guide_clearance_exhaust'], ['valve_spring', 'free_height_outer'], ['valve_spring', 'pressure_outer']] },
-  { id: 't7', phase: 'INSPECT', name: 'Crankshaft & bearings', category: 'crankshaft', status: 'todo',
-    m: [['crankshaft', 'main_journal_diameter'], ['crankshaft', 'runout'], ['crankshaft', 'free_end_play'], ['main_bearing', 'no1_thickness'], ['bearing_clearance', 'main_bearing_clearance']] },
-  { id: 't8', phase: 'MACHINE', name: 'Bore & hone to piston size', status: 'todo', m: [] },
-  { id: 't9', phase: 'MACHINE', name: 'Valve job & resurface head', status: 'todo', m: [] },
-  { id: 't10', phase: 'ASSEMBLE', name: 'Set bearing clearances & torque', sub: 'Angular torque per precautions', status: 'todo', m: [] },
-  { id: 't11', phase: 'ASSEMBLE', name: 'Degree cam & set valvetrain', status: 'todo', m: [] },
-  { id: 't12', phase: 'FINAL', name: 'Compression check & final specs', status: 'todo', m: [] },
+  { id: 't1', phase: 'TEARDOWN', name: 'Disassemble & label components', sub: 'Bag hardware, record teardown notes', status: 'done' },
+  { id: 't2', phase: 'CLEAN', name: 'Hot-tank & clean block / heads', sub: 'Degrease, chase threads', status: 'done' },
+  { id: 't5', phase: 'INSPECT', name: 'Examine cylinder heads', status: 'todo' },
+  { id: 't3', phase: 'INSPECT', name: 'Examine cylinders', status: 'done' },
+  { id: 't4', phase: 'INSPECT', name: 'Examine pistons', status: 'todo' },
+  { id: 't6', phase: 'INSPECT', name: 'Evaluate valvetrain', status: 'issue' },
+  { id: 'tc', phase: 'INSPECT', name: 'Crankshaft inspection', status: 'todo' },
+  { id: 'tr', phase: 'INSPECT', name: 'Connecting rods & bearings', status: 'todo' },
+  { id: 'top', phase: 'INSPECT', name: 'Oil pump', status: 'todo' },
+  { id: 'twp', phase: 'INSPECT', name: 'Water pump', status: 'todo' },
+  { id: 'tt', phase: 'INSPECT', name: 'Timing chain / belt', status: 'todo' },
+  { id: 't8', phase: 'MACHINE', name: 'Bore & hone to piston size', status: 'todo' },
+  { id: 't9', phase: 'MACHINE', name: 'Valve job & resurface heads', status: 'todo' },
+  { id: 't10', phase: 'ASSEMBLE', name: 'Set bearing clearances & torque', sub: 'Angular torque per precautions', status: 'todo' },
+  { id: 't11', phase: 'ASSEMBLE', name: 'Degree cams & set valvetrain', status: 'todo' },
+  { id: 't12', phase: 'FINAL', name: 'Compression check & final specs', status: 'todo' },
 ];
 
-// Pre-entered readings that produce the shown task statuses.
+// Pre-entered per-instance readings that produce the shown task statuses.
+// Field format: `${section}.${key}` or `${section}.${key}@${instanceKey}`.
 const READINGS = {
-  t3: { 'cylinder_block.bore_inner_diameter': 91.505, 'cylinder_block.out_of_round': 0.008, 'cylinder_block.taper': 0.010, 'cylinder_block.surface_flatness': 0.02 },
-  t6: { 'valve.stem_diameter_intake': 6.900, 'valve.stem_diameter_exhaust': 7.965, 'valve.seat_angle': 45.5, 'valve.margin_thickness_intake': 1.30, 'valve.to_guide_clearance_intake': 0.035, 'valve.to_guide_clearance_exhaust': 0.130, 'valve_spring.free_height_outer': 51.0, 'valve_spring.pressure_outer': 300 },
+  t3: {
+    'cylinder_block.bore_inner_diameter@1': 91.505, 'cylinder_block.bore_inner_diameter@2': 91.506,
+    'cylinder_block.bore_inner_diameter@3': 91.512, 'cylinder_block.bore_inner_diameter@4': 91.508,
+    'cylinder_block.bore_inner_diameter@5': 91.503, 'cylinder_block.bore_inner_diameter@6': 91.521,
+  },
+  t6: { 'valve.to_guide_clearance_exhaust@C4EX': 0.130, 'valve.stem_diameter_intake@C1IN': 6.900 },
 };
 
 // Live measurement values (seeded from prefilled readings) + per-step notes.
 const VALUES = {};
 Object.entries(READINGS).forEach(([t, obj]) => { VALUES[t] = { ...obj }; });
 const NOTES = {};
-const getVal = (t, sk, mk) => (VALUES[t] && VALUES[t][`${sk}.${mk}`] != null) ? VALUES[t][`${sk}.${mk}`] : '';
-const setVal = (t, sk, mk, v) => { (VALUES[t] = VALUES[t] || {})[`${sk}.${mk}`] = v; };
+const getV = (t, field) => (VALUES[t] && VALUES[t][field] != null) ? VALUES[t][field] : '';
+const setV = (t, field, v) => { (VALUES[t] = VALUES[t] || {})[field] = v; };
+
+const DEFAULT_LAYOUT = { config: 'I4', heads: ['Head'], cylinders: 4, mainJournals: 5, valves: { intake: 1, exhaust: 1 } };
+const getLayout = () => (BUILDS.find(b => b.id === state.buildId) || {}).layout || DEFAULT_LAYOUT;
+
+// Resolve a step measurement ref to { id, m, scope, section }.
+function resolveStepMeas(entry) {
+  if (Array.isArray(entry)) {
+    const [sk, mk, scope] = entry;
+    return { id: `${sk}.${mk}`, m: findMeasurement(sk, mk), scope: scope || 'single', section: sk };
+  }
+  return { id: `inline.${entry.key}`, m: entry, scope: entry.scope || 'single', section: 'inline' };
+}
+
+// Build the list of instances for a measurement given its scope + the layout.
+function instancesFor(scope, m) {
+  const L = getLayout();
+  const range = (n, fn) => Array.from({ length: n }, (_, i) => fn(i + 1));
+  switch (scope) {
+    case 'head': return L.heads.map(h => ({ key: h[0], label: h }));
+    case 'cylinder':
+    case 'piston': return range(L.cylinders, n => ({ key: String(n), label: 'Cyl ' + n }));
+    case 'main_journal': return range(L.mainJournals, n => ({ key: 'M' + n, label: 'Main ' + n }));
+    case 'rod': return range(L.cylinders, n => ({ key: 'R' + n, label: 'Rod ' + n }));
+    case 'valve': {
+      const groups = m.appliesTo === 'intake' ? ['IN'] : m.appliesTo === 'exhaust' ? ['EX'] : ['IN', 'EX'];
+      const out = [];
+      for (let c = 1; c <= L.cylinders; c++) for (const g of groups) {
+        const count = g === 'IN' ? L.valves.intake : L.valves.exhaust;
+        for (let i = 1; i <= count; i++) {
+          const sfx = count > 1 ? i : '';
+          out.push({ key: `C${c}${g}${sfx}`, label: `C${c} ${g}${sfx}` });
+        }
+      }
+      return out;
+    }
+    default: return [{ key: '', label: '' }];
+  }
+}
+const fieldFor = (res, instKey) => res.id + (instKey ? '@' + instKey : '');
 
 let BOM = [
   { part: 'Main bearing set — grade 2 (green)', pn: 'MB-VG33-STD', need: 1, ordered: 1, received: 1, src: 'inspection' },
@@ -142,6 +186,12 @@ const content = () => $('#content');
 
 function badge(cls, text) { return `<span class="badge ${cls}"><span class="dot"></span>${text}</span>`; }
 
+const SHORT = { 'In spec': 'OK', 'Out of standard': 'OoS', 'Beyond limit': 'LIM', 'No grade match': 'NG', 'Off nominal': 'OoS', 'Recorded': 'OK', '—': '–' };
+function miniBadge(e) {
+  const t = e.text.startsWith('Grade ') ? 'G' + e.text.slice(6) : (SHORT[e.text] || e.text);
+  return `<span class="badge ${e.cls} mini" title="${e.text}">${t}</span>`;
+}
+
 function renderNav() {
   $('#nav').innerHTML = NAV.map(n =>
     `<button class="nav-item ${state.route === n.id || (n.id === 'builds' && state.route === 'build') ? 'active' : ''}" data-nav="${n.id}">${ICONS[n.icon]}<span>${n.label}</span></button>`
@@ -200,7 +250,9 @@ function renderBuild() {
   const tabs = [['workflow', 'Guided workflow'], ['bom', 'Bill of materials'], ['orders', 'Orders'], ['cr', 'Compression ratio']];
   content().innerHTML = `
     <div class="page-head">
-      <div><h2>${b.name}</h2><p>${b.engineName} · engine type <b>${b.engine}</b> · spec revision <b>${b.specRev}</b></p></div>
+      <div><h2>${b.name}</h2><p>${b.engineName} · engine type <b>${b.engine}</b> · spec revision <b>${b.specRev}</b></p>
+      ${b.layout ? `<p class="layout-line">${b.layout.config} · ${b.layout.heads.length} cylinder head${b.layout.heads.length > 1 ? 's' : ''} · ${b.layout.cylinders} cylinders · ${b.layout.cylinders * (b.layout.valves.intake + b.layout.valves.exhaust)} valves (${b.layout.valves.intake} intake + ${b.layout.valves.exhaust} exhaust per cylinder) · ${b.layout.mainJournals} mains</p>` : ''}
+      </div>
       <div class="spacer"></div>${badge(...STATUS_BADGE[b.status])}
     </div>
     <div class="tabs">${tabs.map(([id, l]) => `<button class="tab ${state.tab === id ? 'active' : ''}" data-tab="${id}">${l}</button>`).join('')}</div>
@@ -234,29 +286,58 @@ function renderTaskPanel() {
   renderMeasPanel(panel, t);
 }
 
+function evalField(t, r, instKey) { return evaluate(r.m, getV(t.id, fieldFor(r, instKey))); }
+
+function measBlock(t, entry, idx) {
+  const r = resolveStepMeas(entry);
+  if (!r.m) return '';
+  const insts = instancesFor(r.scope, r.m);
+  const single = insts.length === 1 && insts[0].key === '';
+  if (single) {
+    const f = fieldFor(r, ''); const val = getV(t.id, f); const e = evaluate(r.m, val);
+    return `<div class="meas-row wmeas">
+      <div class="meas-name"><span class="mknum">${idx + 1}</span>${r.m.label}<small>${specRangeText(r.m)} ${r.m.unit}</small></div>
+      <div class="meas-input"><input type="number" step="0.001" value="${val !== '' ? val : ''}" data-mv="${t.id}|${f}"><span class="unit">${r.m.unit}</span></div>
+      <div data-badge="${f}">${badge(e.cls, e.text)}</div>
+    </div>`;
+  }
+  const cells = insts.map(inst => {
+    const f = fieldFor(r, inst.key); const val = getV(t.id, f); const e = evalField(t, r, inst.key);
+    return `<div class="inst-cell">
+      <span class="inst-lbl">${inst.label}</span>
+      <input type="number" step="0.001" value="${val !== '' ? val : ''}" data-mv="${t.id}|${f}">
+      <span class="inst-badge" data-badge="${f}">${miniBadge(e)}</span>
+    </div>`;
+  }).join('');
+  const applies = r.m.appliesTo ? ` <span class="tag">${r.m.appliesTo}</span>` : '';
+  return `<div class="meas-block">
+    <div class="meas-block-head"><span class="mknum">${idx + 1}</span><b>${r.m.label}${applies}</b><small>${specRangeText(r.m)} ${r.m.unit} · ${insts.length} readings</small></div>
+    <div class="inst-grid">${cells}</div>
+  </div>`;
+}
+
 function renderWalkthrough(panel, t) {
   const proc = PROCEDURES[t.id];
   const n = proc.steps.length;
   const si = Math.max(0, Math.min(n - 1, state.step));
   const step = proc.steps[si];
-  const stepDone = i => proc.steps[i].m.length && proc.steps[i].m.every(([sk, mk]) => getVal(t.id, sk, mk) !== '');
 
+  const stepFilled = i => {
+    const ms = proc.steps[i].m; if (!ms.length) return false;
+    return ms.every(entry => { const r = resolveStepMeas(entry); return r.m && instancesFor(r.scope, r.m).every(inst => getV(t.id, fieldFor(r, inst.key)) !== ''); });
+  };
   const stepper = proc.steps.map((s, i) => {
-    const done = stepDone(i), cur = i === si;
+    const done = stepFilled(i), cur = i === si;
     return `<button class="wstep ${cur ? 'cur' : ''} ${done ? 'done' : ''}" data-gostep="${i}"><span class="wnum">${done && !cur ? '✓' : i + 1}</span><span class="wt">${s.title}</span></button>`;
   }).join('<span class="wsep"></span>');
 
-  const rows = step.m.map(([sk, mk], idx) => {
-    const m = findMeasurement(sk, mk); if (!m) return '';
-    const val = getVal(t.id, sk, mk); const e = evaluate(m, val);
-    return `<div class="meas-row wmeas">
-      <div class="meas-name"><span class="mknum">${idx + 1}</span>${m.label}<small>${specRangeText(m)} ${m.unit}</small></div>
-      <div class="meas-input"><input type="number" step="0.001" value="${val !== '' ? val : ''}" data-mv="${t.id}|${sk}|${mk}"><span class="unit">${m.unit}</span></div>
-      <div data-badge="${sk}.${mk}">${badge(e.cls, e.text)}</div>
-    </div>`;
-  }).join('');
+  const blocks = step.m.length ? step.m.map((entry, idx) => measBlock(t, entry, idx)).join('') : '<p class="panel-sub">Visual / note-only step — record findings below.</p>';
 
-  const anyBeyond = step.m.some(([sk, mk]) => evaluate(findMeasurement(sk, mk), getVal(t.id, sk, mk)).text === 'Beyond limit');
+  const beyond = [];
+  step.m.forEach(entry => {
+    const r = resolveStepMeas(entry); if (!r.m) return;
+    instancesFor(r.scope, r.m).forEach(inst => { if (evalField(t, r, inst.key).text === 'Beyond limit') beyond.push({ r, inst }); });
+  });
   const noteKey = `${t.id}.${si}`;
   panel.innerHTML = `
     <div class="wk-head">
@@ -268,80 +349,62 @@ function renderWalkthrough(panel, t) {
       <div class="diagram">${DIAGRAMS[step.diagram] || ''}</div>
       <div class="wk-side">
         <div class="wk-instr"><span class="chip">🛠 ${step.tool}</span><p>${step.instruction}</p>${step.caution ? `<div class="mini-caution">⚠ ${step.caution}</div>` : ''}</div>
-        <div class="wk-meas">${rows}</div>
-        ${anyBeyond ? `<div class="callout"><span>⚠</span><div><b>A reading is beyond the service limit.</b> Flag the replacement part.</div><button class="btn primary sm" data-addneed="1">${ICONS.plus} Add to parts needed</button></div>` : ''}
+        <div class="wk-meas">${blocks}</div>
+        ${beyond.length ? `<div class="callout"><span>⚠</span><div><b>${beyond.length} reading${beyond.length > 1 ? 's are' : ' is'} beyond the service limit</b> (${beyond.map(b => b.inst.label || b.r.m.label).join(', ')}). Flag the replacement part.</div><button class="btn primary sm" data-addneed="1">${ICONS.plus} Add to parts needed</button></div>` : ''}
         <label class="wk-notes-l">Notes for this step</label>
         <textarea class="wk-notes" data-note="${noteKey}" placeholder="Observations, tooling, sublet machine work, decisions…">${NOTES[noteKey] || ''}</textarea>
       </div>
     </div>`;
 
   panel.querySelectorAll('input[data-mv]').forEach(inp => inp.addEventListener('input', () => {
-    const [tid, sk, mk] = inp.dataset.mv.split('|');
-    setVal(tid, sk, mk, inp.value);
-    const e = evaluate(findMeasurement(sk, mk), inp.value);
-    const b = panel.querySelector(`[data-badge="${sk}.${mk}"]`); if (b) b.innerHTML = badge(e.cls, e.text);
+    const bar = inp.dataset.mv.indexOf('|');
+    const tid = inp.dataset.mv.slice(0, bar), field = inp.dataset.mv.slice(bar + 1);
+    setV(tid, field, inp.value);
+    const r = fieldToResolved(field);
+    const e = evaluate(r.m, inp.value);
+    const b = panel.querySelector(`[data-badge="${cssEsc(field)}"]`);
+    if (b) b.innerHTML = b.classList.contains('inst-badge') ? miniBadge(e) : badge(e.cls, e.text);
   }));
   const ta = panel.querySelector('textarea[data-note]');
   if (ta) ta.addEventListener('input', () => { NOTES[ta.dataset.note] = ta.value; });
   const addn = panel.querySelector('[data-addneed]');
   if (addn) addn.addEventListener('click', () => {
-    const b = step.m.map(([sk, mk]) => [sk, mk, findMeasurement(sk, mk)]).find(([sk, mk, m]) => evaluate(m, getVal(t.id, sk, mk)).text === 'Beyond limit');
-    const label = b ? b[2].label : 'Replacement part';
-    BOM.push({ part: label + ' — replace', pn: '—', need: 1, ordered: 0, received: 0, src: 'inspection' });
+    const label = beyond.length ? beyond[0].r.m.label : 'Replacement part';
+    const where = beyond.length && beyond[0].inst.label ? ` (${beyond[0].inst.label})` : '';
+    BOM.push({ part: label + where + ' — replace', pn: '—', need: 1, ordered: 0, received: 0, src: 'inspection' });
     toast('Added “' + label + '” to parts needed');
     state.tab = 'bom'; renderBuild();
   });
 }
 
+// Resolve a stored field string back to its measurement object (for live re-eval).
+function fieldToResolved(field) {
+  const id = field.split('@')[0];
+  if (id.startsWith('inline.')) {
+    for (const p of Object.values(PROCEDURES)) for (const s of p.steps) for (const e of s.m)
+      if (!Array.isArray(e) && `inline.${e.key}` === id) return { m: e };
+    return { m: {} };
+  }
+  const [sk, mk] = id.split('.');
+  return { m: findMeasurement(sk, mk) || {} };
+}
+const cssEsc = s => (window.CSS && CSS.escape) ? CSS.escape(s) : s.replace(/[^a-zA-Z0-9_-]/g, '\\$&');
+
 function taskRow(t) {
+  const proc = PROCEDURES[t.id];
   const stateCls = t.status === 'done' ? 'done' : t.status === 'issue' ? 'issue' : '';
   const tick = t.status === 'done' ? ICONS.check : t.status === 'issue' ? ICONS.bang : '';
   const active = t.id === state.taskId ? 'active' : '';
-  const right = t.status === 'issue' ? badge('bad', 'Needs part') : t.status === 'done' ? badge('ok', 'Pass') : (t.m.length ? badge('muted', t.m.length + ' checks') : '');
+  const right = t.status === 'issue' ? badge('bad', 'Needs part') : t.status === 'done' ? badge('ok', 'Pass') : (proc ? badge('muted', proc.steps.length + ' steps') : '');
   return `<div class="task ${stateCls} ${active}" data-task="${t.id}">
     <div class="tick">${tick}</div>
-    <div><div class="tname">${t.name}</div>${t.sub ? `<div class="tsub">${t.sub}</div>` : (t.category ? `<div class="tsub">${t.m.length} measurements</div>` : '')}</div>
+    <div><div class="tname">${t.name}</div>${t.sub ? `<div class="tsub">${t.sub}</div>` : (proc ? `<div class="tsub">${proc.steps.length} steps</div>` : '')}</div>
     <div class="tright">${right}</div>
   </div>`;
 }
 
 function renderMeasPanel(panel, t) {
-  if (!t.m.length) {
-    panel.innerHTML = `<h3 class="panel-title">${t.name}</h3><p class="panel-sub">${t.sub || 'No recorded measurements for this task.'}</p><button class="btn">Mark complete</button>`;
-    return;
-  }
-  const rows = t.m.map(([sk, mk]) => {
-    const m = findMeasurement(sk, mk);
-    if (!m) return '';
-    const val = (READINGS[t.id] || {})[`${sk}.${mk}`];
-    const id = `in_${t.id}_${sk}_${mk}`;
-    return `<div class="meas-row">
-      <div class="meas-name">${m.label}<small>${sk.replace(/_/g, ' ')}</small></div>
-      <div class="meas-input"><input id="${id}" type="number" step="0.001" value="${val != null ? val : ''}" data-m="${sk}.${mk}"><span class="unit">${m.unit}</span></div>
-      <div class="spec-range">${specRangeText(m)}</div>
-      <div data-badge="${sk}.${mk}">${(() => { const e = evaluate(m, val); return badge(e.cls, e.text); })()}</div>
-    </div>`;
-  }).join('');
-  const issue = t.status === 'issue';
-  panel.innerHTML = `
-    <h3 class="panel-title">${t.name}</h3>
-    <p class="panel-sub">Readings validate live against the <b>${SPEC.engine.type}</b> spec (standard range → service limit; graded parts resolve a grade).</p>
-    ${rows}
-    ${issue ? `<div class="callout">${ICONS.bang}<div><b>Exhaust valve-to-guide clearance is beyond limit.</b> Replace the exhaust valve guides.</div><button class="btn primary sm" id="add-need">${ICONS.plus} Add to parts needed</button></div>` : ''}`;
-  panel.querySelectorAll('input[data-m]').forEach(inp => {
-    inp.addEventListener('input', () => {
-      const [sk, mk] = inp.dataset.m.split('.');
-      const m = findMeasurement(sk, mk);
-      const e = evaluate(m, inp.value);
-      panel.querySelector(`[data-badge="${sk}.${mk}"]`).innerHTML = badge(e.cls, e.text);
-    });
-  });
-  const add = $('#add-need');
-  if (add) add.addEventListener('click', () => {
-    BOM.push({ part: 'Exhaust valve guide — service size', pn: 'VG-EX-050', need: 2, ordered: 0, received: 0, src: 'inspection' });
-    toast('Added “Exhaust valve guide” to the bill of materials');
-    state.tab = 'bom'; renderBuild();
-  });
+  panel.innerHTML = `<h3 class="panel-title">${t.name}</h3><p class="panel-sub">${t.sub || 'This step has no recorded measurements yet.'}</p><button class="btn">Mark complete</button>`;
 }
 
 function renderBom(body) {
