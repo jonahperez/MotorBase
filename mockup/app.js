@@ -585,11 +585,13 @@ function renderNav() {
 
 function render() {
   renderNav();
+  document.body.classList.toggle('report-mode', state.route === 'report');
   const r = state.route;
   if (r === 'dashboard') return renderDashboard();
   if (r === 'builds') return renderBuilds();
   if (r === 'setup') return renderSetup();
   if (r === 'build') return renderBuild();
+  if (r === 'report') return renderReport();
   if (r === 'specs') return renderSpecs();
 }
 
@@ -710,7 +712,9 @@ function renderBuild() {
         : `${b.name} <button class="icon-btn" data-rename title="Rename build">✎</button>`}</h2>
         <p class="build-meta">${b.engineName} · <b>${b.engine}</b> · spec ${b.specRev} · ${archSummaryLine(b.architecture)}</p>
       </div>
-      <div class="spacer"></div>${badge(...STATUS_BADGE[b.status])}
+      <div class="spacer"></div>
+      <button class="btn" data-report>${ICONS.download} Generate report</button>
+      ${badge(...STATUS_BADGE[b.status])}
     </div>
     <div class="tabs compact-tabs">${tabs.map(([id, l]) => `<button class="tab ${state.tab === id ? 'active' : ''}" data-tab="${id}">${l}</button>`).join('')}</div>
     <div id="tab-body"></div>`;
@@ -1671,6 +1675,312 @@ function bindPartsWorkbench(body) {
   }));
 }
 
+/* ---------- End-of-build report ---------- */
+const esc = s => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+
+function reportFieldLabel(fieldId, m) {
+  if (fieldId.startsWith('cylinder_block.bore.')) {
+    const rest = fieldId.slice('cylinder_block.bore.'.length); // C1.TX
+    const [cyl, pos] = rest.split('.');
+    return `Bore ${cyl} ${pos || ''}`.trim();
+  }
+  if (fieldId.startsWith('balance.')) return 'Balance · ' + fieldId.slice(8);
+  const [base, inst] = fieldId.split('@');
+  const label = m?.label || base.split('.').slice(1).join('.') || base;
+  return inst ? `${label} · ${inst}` : label;
+}
+
+function buildReportData(b = getBuild()) {
+  return withBuild(b, () => {
+    const tasks = buildTasks(b);
+    const readings = [];
+    const exceptions = [];
+    tasks.forEach(t => {
+      const fields = taskFields(t);
+      const phase = PHASES.find(p => p.key === t.phase);
+      fields.forEach(f => {
+        const v = getV(t.id, f.id);
+        if (v === '' || v == null) return;
+        const ev = evaluate(f.m, v);
+        const row = {
+          phase: phase?.label?.split(' — ')[0] || t.phase,
+          task: shortTaskName(t),
+          taskId: t.id,
+          field: f.id,
+          label: reportFieldLabel(f.id, f.m),
+          value: v,
+          unit: f.m?.unit || '',
+          limit: specRangeText(f.m || {}),
+          result: ev.text,
+          cls: ev.cls,
+          replace: isReplace(t.id, f.id),
+        };
+        readings.push(row);
+        if (['warn', 'bad'].includes(ev.cls) || row.replace) exceptions.push(row);
+      });
+      const note = getNote(t.id + '._notes');
+      if (note) readings.push({
+        phase: phase?.label?.split(' — ')[0] || t.phase,
+        task: shortTaskName(t), taskId: t.id, field: '_notes',
+        label: 'Section notes', value: note, unit: '', limit: '—', result: 'Note', cls: 'muted', replace: false, isNote: true,
+      });
+    });
+
+    const replaced = [];
+    Object.entries(store().replace).forEach(([k, partLabel]) => {
+      const [tid, field] = k.split('|');
+      const t = TASKS.find(x => x.id === tid);
+      const need = store().needs.find(n => n._replaceKey === k);
+      replaced.push({
+        part: partLabel,
+        pn: need?.pn || '—',
+        why: t ? `Inspect › ${shortTaskName(t)}` : 'Inspection',
+        field,
+        fulfill: need?.fulfill || 'order',
+        need,
+      });
+    });
+    store().needs.filter(n => n.why === 'inspection' && !n._replaceKey).forEach(n => {
+      if (replaced.some(r => r.need?.id === n.id)) return;
+      replaced.push({ part: n.part, pn: n.pn, why: n.reason, field: null, fulfill: n.fulfill, need: n });
+    });
+
+    const used = store().needs.map(n => {
+      const c = needCoverage(n);
+      return { n, c };
+    }).filter(({ n, c }) => c.receivedPo > 0 || c.fromStock > 0 || n.fulfill === 'customer');
+
+    const blocking = blockingParts();
+    const totals = partsTotals();
+    const pos = store().pos.map(po => ({
+      ...po,
+      total: po.lines.reduce((a, l) => a + l.qtyOrdered * l.unitCost, 0),
+      lines: po.lines.map(l => ({ ...l, part: needById(l.needId)?.part || l.needId, pn: needById(l.needId)?.pn || '' })),
+    }));
+
+    const checklist = PHASES.map(p => {
+      const ts = tasks.filter(t => t.phase === p.key);
+      if (!ts.length) return null;
+      return {
+        phase: p,
+        done: ts.filter(t => isTaskDone(t)).length,
+        total: ts.length,
+        tasks: ts.map(t => {
+          const prog = taskProgress(t);
+          return { t, done: isTaskDone(t), prog };
+        }),
+      };
+    }).filter(Boolean);
+
+    return {
+      b,
+      generatedAt: new Date(),
+      progress: buildLiveProgress(b),
+      archLine: archSummaryLine(b.architecture),
+      readings,
+      exceptions,
+      replaced,
+      used,
+      blocking,
+      totals,
+      pos,
+      checklist,
+      spec: SPEC?.engine || null,
+    };
+  });
+}
+
+function fmtReading(v) {
+  if (v === 'pass' || v === 'fail' || v === 'na') return String(v).toUpperCase();
+  if (typeof v === 'number' || (v !== '' && v != null && !isNaN(v))) {
+    const n = Number(v);
+    return Number.isInteger(n) ? String(n) : String(Math.round(n * 1000) / 1000);
+  }
+  return String(v);
+}
+
+function renderReport() {
+  const b = BUILDS.find(x => x.id === state.buildId);
+  if (!b) return navigate('builds');
+  const d = buildReportData(b);
+  const [stCls, stTxt] = STATUS_BADGE[b.status];
+  const dateStr = d.generatedAt.toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
+  $('#crumb').innerHTML = `<span data-nav="builds">Builds</span> / <span data-build="${b.id}">${esc(b.name)}</span> / <b>Report</b>`;
+
+  const exceptionHtml = (d.exceptions.length || d.blocking.length || d.replaced.length) ? `
+    <section class="rpt-section">
+      <h3>Exceptions</h3>
+      <p class="rpt-lead">Findings that need attention — out of spec, replaced, or parts still open.</p>
+      ${d.exceptions.length ? `
+        <h4 class="rpt-subh">Measurement findings (${d.exceptions.length})</h4>
+        <table class="rpt-table">
+          <thead><tr><th>Section</th><th>Measurement</th><th>Value</th><th>Limit</th><th>Result</th><th></th></tr></thead>
+          <tbody>${d.exceptions.map(r => `<tr class="rpt-${r.cls}">
+            <td>${esc(r.task)}</td><td>${esc(r.label)}</td>
+            <td class="num">${esc(fmtReading(r.value))} ${esc(r.unit)}</td>
+            <td class="muted">${esc(r.limit)}</td>
+            <td>${badge(r.cls, SHORT[r.result] || r.result)}</td>
+            <td>${r.replace ? badge('bad', 'Replace') : ''}</td>
+          </tr>`).join('')}</tbody>
+        </table>` : '<p class="rpt-empty">No out-of-spec readings recorded.</p>'}
+      ${d.replaced.length ? `
+        <h4 class="rpt-subh">Replaced / rejected (${d.replaced.length})</h4>
+        <table class="rpt-table">
+          <thead><tr><th>Part</th><th>P/N</th><th>Why</th><th>Fulfill</th></tr></thead>
+          <tbody>${d.replaced.map(r => `<tr>
+            <td><b>${esc(r.part)}</b></td><td>${esc(r.pn)}</td><td>${esc(r.why)}</td><td>${esc(r.fulfill)}</td>
+          </tr>`).join('')}</tbody>
+        </table>` : ''}
+      ${d.blocking.length ? `
+        <h4 class="rpt-subh">Parts still open (${d.blocking.length})</h4>
+        <table class="rpt-table">
+          <thead><tr><th>Part</th><th>Need</th><th>Status</th><th>Est.</th></tr></thead>
+          <tbody>${d.blocking.map(({ n, c, bo }) => `<tr>
+            <td><b>${esc(n.part)}</b><div class="muted">${esc(n.pn)}</div></td>
+            <td class="num">${n.need}</td>
+            <td>${bo ? badge('bad', 'Backordered') : needStatusBadge(n)}</td>
+            <td class="num">${money2(n.need * (n.estUnitCost || 0))}</td>
+          </tr>`).join('')}</tbody>
+        </table>` : ''}
+    </section>` : `
+    <section class="rpt-section">
+      <h3>Exceptions</h3>
+      <p class="rpt-ok">No exceptions — no OoS/LIM findings, replacements, or open parts.</p>
+    </section>`;
+
+  const checklistHtml = `
+    <section class="rpt-section">
+      <h3>Completion checklist</h3>
+      <p class="rpt-lead">Work-plan progress by phase for this architecture.</p>
+      <div class="rpt-check-grid">
+        ${d.checklist.map(ph => `
+          <div class="rpt-check-phase ${ph.done === ph.total ? 'done' : ''}">
+            <div class="rpt-check-head">
+              <b>${esc(ph.phase.num)}. ${esc(ph.phase.label.split(' — ')[0])}</b>
+              <span>${ph.done}/${ph.total}</span>
+            </div>
+            <ul>${ph.tasks.map(({ t, done, prog }) => `
+              <li class="${done ? 'done' : prog.issue ? 'issue' : ''}">
+                <span class="mark">${done ? '✓' : prog.issue ? '!' : '○'}</span>
+                ${esc(shortTaskName(t))}
+                ${prog.total ? `<span class="muted">${prog.filled}/${prog.total}</span>` : ''}
+              </li>`).join('')}
+            </ul>
+          </div>`).join('')}
+      </div>
+    </section>`;
+
+  const measHtml = `
+    <section class="rpt-section">
+      <h3>Measurement log</h3>
+      <p class="rpt-lead">${d.readings.filter(r => !r.isNote).length} recorded values · ${d.progress}% sections complete</p>
+      ${d.readings.length ? `
+        <table class="rpt-table">
+          <thead><tr><th>Phase</th><th>Section</th><th>Measurement</th><th>Value</th><th>Limit</th><th>Result</th></tr></thead>
+          <tbody>${d.readings.map(r => r.isNote ? `<tr class="rpt-note">
+            <td>${esc(r.phase)}</td><td>${esc(r.task)}</td><td colspan="4"><i>${esc(r.value)}</i></td>
+          </tr>` : `<tr class="rpt-${r.cls}">
+            <td>${esc(r.phase)}</td><td>${esc(r.task)}</td><td>${esc(r.label)}${r.replace ? ' ' + badge('bad', 'Replace') : ''}</td>
+            <td class="num">${esc(fmtReading(r.value))} ${esc(r.unit)}</td>
+            <td class="muted">${esc(r.limit)}</td>
+            <td>${badge(r.cls, SHORT[r.result] || r.result)}</td>
+          </tr>`).join('')}</tbody>
+        </table>` : '<p class="rpt-empty">No measurements recorded yet.</p>'}
+    </section>`;
+
+  const usedRows = d.used.map(({ n, c }) => {
+    const qty = Math.max(c.receivedPo + c.fromStock, n.fulfill === 'customer' ? n.need : 0);
+    let unitCost = n.estUnitCost || 0;
+    let source = 'Purchase order';
+    if (n.fulfill === 'customer') source = 'Customer';
+    else if (c.fromStock && !c.receivedPo) {
+      source = 'Shop stock';
+      unitCost = stockFor(n.pn)?.unitCost ?? n.estUnitCost ?? 0;
+    } else if (c.receivedPo && c.fromStock) source = 'PO + stock';
+    d.pos.forEach(po => po.lines.forEach(l => {
+      if (l.needId === n.id && l.qtyReceived) unitCost = l.unitCost;
+    }));
+    if (c.fromStock && !c.receivedPo) unitCost = stockFor(n.pn)?.unitCost ?? n.estUnitCost ?? 0;
+    return `<tr>
+      <td><b>${esc(n.part)}</b><div class="muted">${esc(n.pn)}</div></td>
+      <td>${esc(n.reason || n.why)}</td>
+      <td>${esc(source)}</td>
+      <td class="num">${qty}</td>
+      <td class="num">${money2(unitCost)}</td>
+      <td class="num">${money2(qty * unitCost)}</td>
+    </tr>`;
+  }).join('');
+
+  const usedHtml = `
+    <section class="rpt-section">
+      <h3>Parts used</h3>
+      <p class="rpt-lead">Received, issued from stock, or customer-supplied.</p>
+      ${d.used.length ? `<table class="rpt-table">
+          <thead><tr><th>Part</th><th>Why</th><th>Source</th><th>Qty</th><th>Unit</th><th>Ext.</th></tr></thead>
+          <tbody>${usedRows}</tbody>
+        </table>` : '<p class="rpt-empty">No parts received or issued yet.</p>'}
+    </section>`;
+
+  const costHtml = `
+    <section class="rpt-section">
+      <h3>Cost rollup</h3>
+      <div class="rpt-cost-strip">
+        <div><div class="label">Estimate</div><div class="value">${money(d.totals.estimate)}</div></div>
+        <div><div class="label">Committed (open POs)</div><div class="value">${money(d.totals.committed)}</div></div>
+        <div><div class="label">From stock</div><div class="value">${money(d.totals.fromStock)}</div></div>
+        <div><div class="label">Still to cover</div><div class="value ${d.totals.stillToCover ? 'bad' : ''}">${money(d.totals.stillToCover)}</div></div>
+        <div class="emphasize"><div class="label">Actual so far</div><div class="value">${money(d.totals.actual)}</div></div>
+      </div>
+    </section>`;
+
+  const poHtml = `
+    <section class="rpt-section">
+      <h3>Purchase order trail</h3>
+      ${d.pos.length ? d.pos.map(po => `
+        <div class="rpt-po">
+          <div class="rpt-po-head">
+            <b>${esc(po.id)}</b> · ${esc(po.vendor)}
+            <span>${money(po.total)} · ${po.eta ? 'ETA ' + esc(po.eta) + ' · ' : ''}${badge(...(STATUS_BADGE[po.status] || ['muted', po.status]))}</span>
+          </div>
+          <table class="rpt-table compact">
+            <thead><tr><th>Line</th><th>Ordered</th><th>Received</th><th>Unit</th><th>Ext.</th></tr></thead>
+            <tbody>${po.lines.map(l => `<tr>
+              <td>${esc(l.part)}<div class="muted">${esc(l.pn)}</div></td>
+              <td class="num">${l.qtyOrdered}</td>
+              <td class="num">${l.qtyReceived}</td>
+              <td class="num">${money2(l.unitCost)}</td>
+              <td class="num">${money2(l.qtyOrdered * l.unitCost)}</td>
+            </tr>`).join('')}</tbody>
+          </table>
+        </div>`).join('') : '<p class="rpt-empty">No purchase orders on this build.</p>'}
+    </section>`;
+
+  content().innerHTML = `
+    <div class="rpt-toolbar no-print">
+      <button class="btn" data-build="${b.id}">‹ Back to build</button>
+      <div class="spacer"></div>
+      <button class="btn primary" data-report-print>Print / Save PDF</button>
+    </div>
+    <article class="rpt" id="build-report">
+      <header class="rpt-cover">
+        <div class="rpt-brand">Motor<span>Base</span> · Precision Engine Works</div>
+        <h1>${esc(b.name)}</h1>
+        <p class="rpt-meta">
+          ${esc(b.engineName)} · <b>${esc(b.engine)}</b> · spec ${esc(b.specRev)}<br>
+          ${esc(d.archLine)} · ${badge(stCls, stTxt)} · ${d.progress}% complete
+        </p>
+        <p class="rpt-generated">Report generated ${esc(dateStr)}</p>
+      </header>
+      ${exceptionHtml}
+      ${checklistHtml}
+      ${measHtml}
+      ${usedHtml}
+      ${costHtml}
+      ${poHtml}
+      <footer class="rpt-foot">MotorBase build report · ${esc(b.id)} · ${esc(dateStr)}</footer>
+    </article>`;
+}
+
 function renderSpecs() {
   $('#crumb').innerHTML = '<b>Engine specs</b>';
   const nMeas = SPEC?.sections?.reduce((a, s) => a + s.measurements.length, 0) || 0;
@@ -1755,9 +2065,16 @@ function dashGoto(focus) {
 
 document.addEventListener('click', e => {
   const nav = e.target.closest('[data-nav]');
-  if (nav) { state.setup = null; return navigate(nav.dataset.nav); }
+  if (nav) { state.setup = null; document.body.classList.remove('report-mode'); return navigate(nav.dataset.nav); }
   const dash = e.target.closest('[data-dash-focus]');
   if (dash) return dashGoto(dash.dataset.dashFocus);
+  if (e.target.closest('[data-report-print]')) { window.print(); return; }
+  if (e.target.closest('[data-report]')) {
+    if (!state.buildId) return;
+    state.route = 'report';
+    window.scrollTo(0, 0);
+    return render();
+  }
   const b = e.target.closest('[data-build]');
   if (b) return navigate('build', b.dataset.build);
   if (e.target.closest('[data-setup-new]')) {

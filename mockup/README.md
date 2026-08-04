@@ -21,6 +21,7 @@ Open http://localhost:8123/index.html → **Continue with Google** → **VG33E P
 - **Measurements** tab: phase/section strips, live OK/OoS badges, **Replace** → Parts toast, Enter advances fields.
 - **Parts & orders**: cost strip (est / committed / cart / stock / still to cover), need list with fulfill path (order · shop stock · customer), cart → submit PO by vendor, expand PO to receive lines, inspection “why” deep-link.
 - **Dashboard**: shop desk — still-to-cover parts, open POs, inspection issues, attention list (not a Builds clone).
+- **Generate report** (on a build): print-ready dossier — exceptions, completion checklist, measurement log, parts used, cost rollup, PO trail. Use Print / Save PDF.
 - **Engine specs**: limits catalogs only (architecture templates live on New build / Architecture tab).
 
 ## Notes

@@ -6,14 +6,19 @@ MotorBase is an engine-building platform that combines guided inspection workflo
 
 MotorBase helps an engine builder **do a build and supply a build** in one place, across two connected pillars:
 
-- **Guided build workflow** — walk through the common tasks of a build (examine the cylinders, pistons, and cylinder head, evaluate the valvetrain, crankshaft/bearings, etc.), following step-by-step procedures and recording the measurements each task requires. Readings are checked against the engine's specifications and flagged as in-spec, out-of-standard, or beyond the service limit.
-- **Parts ordering (procurement)** — define the parts a build needs (a bill of materials), order them from vendors, and track them: what's needed vs. ordered vs. received, from whom, and at what cost.
+- **Guided build workflow** — walk through the common tasks of a build (examine the cylinders, pistons, and cylinder head, evaluate the valvetrain, crankshaft/bearings, etc.), following step-by-step procedures and recording the measurements each task requires. Readings are checked against the engine's specifications and flagged as in-spec, out-of-standard, or beyond the service limit. Which modules appear is driven by the build’s **engine architecture** (topology), separate from numeric limits.
+- **Parts ordering (procurement)** — maintain a need list / BOM, fulfill from **vendor order**, **shop stock**, or **customer-supplied**, and track cost and coverage (estimate · committed · still to cover · actual).
 
-The pillars connect: an inspection that measures beyond limit generates a part need (including the correct graded/selective-fit part), which flows straight into the BOM and the ordering workflow.
+The pillars connect: an inspection that measures beyond limit (or a **Replace** mark) generates a part need (including the correct graded/selective-fit part), which flows into the need list and ordering workflow. At the end of a build, MotorBase produces a **print/PDF report** (exceptions, measurement log, parts used, costs, PO trail, completion checklist).
 
-### Engine specification templates
+### Engine architecture vs specification templates
 
-Measurements are validated against a **standardized JSON specification** for the engine type. A user downloads a blank template, fills in every value for their engine (e.g. VG33E — valve stem diameter, seat/face, runout, clearances, graded parts), and uploads it; MotorBase stores it and uses it to validate the workflow. See `schema/` for the JSON Schema, a blank template, and a filled VG33E example.
+- **Architecture** — what the engine *is* (V/inline, cylinder count, valvetrain family, cams). Chosen at build setup; editable on the build. Gates the work plan.
+- **Engine specs** — numeric **limits** for an engine type. A user downloads a blank JSON template, fills values (e.g. VG33E), and uploads it. See `schema/` for the JSON Schema, blank template, and VG33E example.
+
+### UI mockup
+
+A clickable prototype lives in [`mockup/`](./mockup/) (architecture wizard, measurement workspace, parts workbench, shop desk, build report). See [`mockup/README.md`](./mockup/README.md).
 
 ## Architecture (light)
 
@@ -31,6 +36,7 @@ The design (domain model, single-table keys, identity, and the spec-template fea
 
 ## Repository layout
 
-- `DESIGN.md` — full design.
+- `DESIGN.md` — full design (domain, AWS, specs, mockup-validated UX in §13).
+- `mockup/` — clickable UI prototype.
 - `schema/` — standardized engine-spec JSON Schema, blank template, and VG33E example.
 - `scripts/` — helpers to generate the blank template and evaluate readings against a spec.
