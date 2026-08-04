@@ -1,6 +1,6 @@
 # MotorBase
 
-Engine building database.
+MotorBase is an engine-building platform that combines guided inspection workflows with parts procurement in one place. Builders work through phase-based tasks—teardown, inspect, machine, assemble—recording measurements against engine specs and getting immediate pass/fail/out-of-spec feedback. When something fails inspection, it automatically becomes a part need on the build's bill of materials, so ordering and tracking parts (to order, on order, received, backordered) stays tied to what the build actually requires. It's designed as multi-tenant SaaS for shops that want a single system to both execute and supply an engine rebuild.
 
 ## What it's for
 

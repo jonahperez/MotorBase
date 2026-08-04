@@ -1,28 +1,31 @@
 # MotorBase — UI mockup
 
-A self-contained, clickable prototype of the MotorBase UI (no build step, no backend). It illustrates the core flows from the design: sign-in, builds, the guided inspection workflow, findings → bill of materials, orders, engine-spec templates, and the compression-ratio calculator.
+A self-contained, clickable prototype of the MotorBase UI (no build step, no backend). Compact measurement-entry workflow: phase/section strips for quick navigation, live spec validation, and parts tracking.
 
-The measurement validation and compression-ratio math are the **real algorithms** (ported from `scripts/spec_eval.py` and `scripts/compression_ratio.py`) and are driven by the actual VG33E spec at `data/vg33e.engine-spec.json` (a copy of `schema/examples/vg33e.engine-spec.json`).
+Measurement validation uses the **real algorithm** (ported from `scripts/spec_eval.py`) against the VG33E spec at `data/vg33e.engine-spec.json`.
 
 ## Run
-
-Serve the folder over HTTP (needed for the `fetch` of the spec JSON):
 
 ```
 cd mockup
 python3 -m http.server 8123
 ```
 
-Then open http://localhost:8123/index.html and click **Continue with Google**.
+Open http://localhost:8123/index.html → **Continue with Google** → **VG33E Pathfinder rebuild**.
 
 ## What to try
 
-- Open the **VG33E Pathfinder rebuild** build → **Guided workflow** → **Evaluate valvetrain**. Type a reading (e.g. valve stem diameter `6.972`) and watch the badge update live (In spec / Out of standard / Beyond limit; graded parts resolve a grade).
-- Click **Add to parts needed** on a beyond-limit finding to push it into the **Bill of materials**.
-- Open the **Compression ratio** tab and change a volume input to see the ratio recompute.
-- Open **Engine specs** to see the standardized template sections.
+- **New build**: pick an architecture template (V6 SOHC rocker, I4 DOHC, V8 OHV pushrod, single-cylinder), tweak topology, then create.
+- Open **VG33E** vs **SBC 350** and compare the **Measurements** section list — rocker shafts vs pushrods/lifters are gated by architecture.
+- **Architecture** tab on a build: topology map, edit family/counts/cams, see which work-plan modules are active.
+- **Measurements** tab: phase/section strips, live OK/OoS badges, **Replace** → Parts toast, Enter advances fields.
+- **Parts & orders**: cost strip (est / committed / cart / stock / still to cover), need list with fulfill path (order · shop stock · customer), cart → submit PO by vendor, expand PO to receive lines, inspection “why” deep-link.
+- **Dashboard**: shop desk — still-to-cover parts, open POs, inspection issues, attention list (not a Builds clone).
+- **Engine specs**: limits catalogs only (architecture templates live on New build / Architecture tab).
 
 ## Notes
 
-- Mockup only: auth, data, and orders are stubbed; nothing is persisted.
-- Files: `index.html`, `styles.css` (hand-written, no framework), `app.js`, `data/`.
+- Architecture (topology) and engine-spec (limits) are separate layers.
+- Readings, need list, cart, and POs are per build.
+- Mockup only: auth and persistence are stubbed.
+- Files: `index.html`, `styles.css`, `architecture.js`, `app.js`, `diagrams.js`, `data/`.
